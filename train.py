@@ -226,6 +226,7 @@ def make_reward_fn():
 
         if log_metric and breakdowns:
             for metric in (
+                "R0_allergy",
                 "R1_activity",
                 "R2_guideline",
                 "R3_stewardship",

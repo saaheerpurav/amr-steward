@@ -276,6 +276,23 @@ def R5_reasoning_grounding(tool_call_history: list[str], prescription: dict | No
     return min(score, 1.0)
 
 
+def R0_allergy_safety(prescription: dict, patient: PatientCase, drug_properties: dict | None = None) -> float:
+    """R0: Hard safety gate — prescribing a drug the patient is allergic to is an
+    immediate zero regardless of all other reward components.
+    Returns 1.0 (safe to proceed) or 0.0 (allergy conflict detected)."""
+    if not patient.allergies:
+        return 1.0
+    drug = _normalize_drug(prescription.get("drug", ""))
+    drug_props = drug_properties if drug_properties is not None else _get_drug_props()
+    props = drug_props.get(drug, {})
+    allergy_flags = props.get("allergy_flags", [])
+    patient_allergies = [a.lower() for a in patient.allergies]
+    for flag in allergy_flags:
+        if any(pa in flag.lower() for pa in patient_allergies):
+            return 0.0
+    return 1.0
+
+
 def compute_total_reward(
     prescription: dict,
     patient: PatientCase,
@@ -285,7 +302,24 @@ def compute_total_reward(
     drug_properties: dict | None = None,
 ) -> tuple[float, dict]:
     """Compute weighted total reward. Returns (total, breakdown dict).
-    Weights: R1=40%, R2=25%, R3=15%, R4=10%, R5=10%"""
+    Weights: R1=40%, R2=25%, R3=15%, R4=10%, R5=10%
+
+    R0 is a hard safety gate: allergy conflict → total=0.0 regardless of all
+    other components. This prevents false-positive rewards for dangerous prescriptions.
+    """
+    r0 = R0_allergy_safety(prescription, patient, drug_properties)
+    if r0 == 0.0:
+        breakdown = {
+            "R0_allergy": 0.0,
+            "R1_activity": 0.0,
+            "R2_guideline": 0.0,
+            "R3_stewardship": 0.0,
+            "R4_dose": 0.0,
+            "R5_reasoning": 0.0,
+            "total": 0.0,
+        }
+        return 0.0, breakdown
+
     r1 = R1_microbiological_activity(prescription, patient, eucast)
     r2 = R2_guideline_concordance(prescription, patient, idsa)
     r3 = R3_stewardship(prescription, patient, eucast, r1)
@@ -295,6 +329,7 @@ def compute_total_reward(
     total = round(0.40*r1 + 0.25*r2 + 0.15*r3 + 0.10*r4 + 0.10*r5, 4)
 
     breakdown = {
+        "R0_allergy": 1.0,
         "R1_activity": r1,
         "R2_guideline": r2,
         "R3_stewardship": r3,

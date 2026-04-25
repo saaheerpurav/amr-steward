@@ -22,22 +22,35 @@ SPECTRUM_SCORE = {
 
 
 def reset(level=1):
-    r = requests.get(f"{BASE}/reset", params={"level": level})
+    r = requests.post(f"{BASE}/reset", json={"curriculum_level": level})
     r.raise_for_status()
-    return r.json()
+    obs = r.json()
+    # openenv-core wraps observation; also accept flat legacy format
+    if "observation" in obs:
+        flat = obs["observation"]
+        flat["reward"] = obs.get("reward")
+        flat["done"] = obs.get("done", False)
+        return flat
+    return obs
 
 
 def step(action_type, tool_name=None, tool_arg=None, prescription=None):
-    payload = {"action_type": action_type}
+    action = {"action_type": action_type}
     if tool_name:
-        payload["tool_name"] = tool_name
+        action["tool_name"] = tool_name
     if tool_arg:
-        payload["tool_arg"] = tool_arg
+        action["tool_arg"] = tool_arg
     if prescription:
-        payload["prescription"] = prescription
-    r = requests.post(f"{BASE}/step", json=payload)
+        action["prescription"] = prescription
+    r = requests.post(f"{BASE}/step", json={"action": action})
     r.raise_for_status()
-    return r.json()
+    resp = r.json()
+    # Flatten openenv-core response to match legacy callers
+    obs = resp.get("observation", {})
+    obs["reward"] = resp.get("reward")
+    obs["reward_breakdown"] = obs.get("metadata", {}).get("reward_breakdown", {})
+    obs["done"] = resp.get("done", False)
+    return obs
 
 
 def parse_antibiogram(patient_text):
@@ -85,7 +98,7 @@ def run_demo():
 
     print(f"\n>>> INVESTIGATE: interpret_resistance({antibiogram[0]})")
     r = step("INVESTIGATE", "interpret_resistance", antibiogram[0])
-    print("  " + r["observation"]["tool_results"][-1][:100])
+    print("  " + r["tool_results"][-1][:100])
 
     print(f"\n>>> COMMIT: {bad_drug} (broadest available -- bad stewardship)")
     r = step("COMMIT", prescription={
@@ -97,7 +110,7 @@ def run_demo():
 
     print(f"\n  REWARD: {reward_bad:.4f}")
     if bd:
-        for k, wt in [("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","10%")]:
+        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","5%"),("R6_format","5%")]:
             v = bd.get(k, 0)
             bar = "#" * int(v * 20)
             print(f"  {k} ({wt}): {v:.2f}  [{bar:<20}]")
@@ -123,15 +136,15 @@ def run_demo():
 
     print("\n>>> INVESTIGATE: interpret_resistance(cefazolin)")
     r2 = step("INVESTIGATE", "interpret_resistance", "cefazolin")
-    print("  " + r2["observation"]["tool_results"][-1][:100])
+    print("  " + r2["tool_results"][-1][:100])
 
     print("\n>>> INVESTIGATE: check_guideline(bacteremia)")
     r3 = step("INVESTIGATE", "check_guideline", "bacteremia")
-    print("  " + r3["observation"]["tool_results"][-1][:120])
+    print("  " + r3["tool_results"][-1][:120])
 
     print("\n>>> INVESTIGATE: assess_patient_factors")
     r4 = step("INVESTIGATE", "assess_patient_factors")
-    print("  " + r4["observation"]["tool_results"][-1].splitlines()[0])
+    print("  " + r4["tool_results"][-1].splitlines()[0])
 
     print("\n>>> COMMIT: cefazolin / 2g IV q8h (IDSA first-line for MSSA)")
     r5 = step("COMMIT", prescription={
@@ -145,7 +158,7 @@ def run_demo():
 
     print(f"\n  REWARD: {reward_good:.4f}")
     if bd2:
-        for k, wt in [("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","10%")]:
+        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","5%"),("R6_format","5%")]:
             v = bd2.get(k, 0)
             bar = "#" * int(v * 20)
             print(f"  {k} ({wt}): {v:.2f}  [{bar:<20}]")
