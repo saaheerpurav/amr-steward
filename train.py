@@ -268,7 +268,11 @@ def load_model(model_name: str, disable_unsloth: bool):
         from peft import LoraConfig, get_peft_model
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        bf16_supported = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+        if torch.cuda.is_available():
+            dtype = torch.bfloat16 if bf16_supported else torch.float16
+        else:
+            dtype = torch.float32
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=dtype,
