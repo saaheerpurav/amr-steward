@@ -18,3 +18,7 @@ pandas>=2.2.0
 # ── Training (Saaheer's pipeline — needed for Colab + HF) ─────────────────────
 trl>=0.8.0
 unsloth
+datasets>=2.19.0
+transformers>=4.51.0
+accelerate>=0.34.0
+peft>=0.11.0
