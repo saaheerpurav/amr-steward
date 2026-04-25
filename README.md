@@ -70,7 +70,7 @@ All components are pure functions — no LLM judge. The terminal reward is RLVR-
 | **R2** Guideline concordance | Oracle input | Is this the IDSA-recommended agent? (1.0 = first-line, 0.5 = alternative) |
 | **R3** Stewardship | Oracle input | Is this the *narrowest* effective drug? Penalizes unnecessary broad-spectrum use |
 | **R4** Dose correctness | Oracle input | Is the dose appropriate for this patient's renal function? |
-| **R5** Tool efficiency | Process signal | `(unique_tool_types / budget_spent) × (budget_remaining / budget_total)` |
+| **R5** Tool efficiency | Process signal | `(unique_tool_types / budget_spent) × (budget_remaining / budget_total)` — no keywords, no text parsing |
 | **R6** Output format | Format signal | Clean single COMMIT line (1.0 for ≤3 lines, decays 0.05/line after) |
 
 **Quality ratio** (RLVR oracle): for each patient, `compute_optimal_prescription()` brute-forces all antibiogram drugs to find the maximum achievable process score. The agent is then scored relative to that optimum:

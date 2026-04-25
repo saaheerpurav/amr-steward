@@ -8,7 +8,7 @@ Run: python demo.py
 import ast
 import requests
 
-BASE = "https://divyanshb06-amrsteward.hf.space"
+BASE = "https://saaheerpurav-amr-steward.hf.space"
 
 SPECTRUM_SCORE = {
     "nitrofurantoin": 1, "trimethoprim-sulfamethoxazole": 1, "ampicillin": 1,
@@ -79,7 +79,7 @@ def sep(title=""):
 
 def run_demo():
     print("\nAMR-STEWARD -- Live Environment Demo")
-    print("Environment: https://divyanshb06-amrsteward.hf.space")
+    print("Environment: https://saaheerpurav-amr-steward.hf.space")
     print("Model:       https://huggingface.co/saaheerpurav/amr-steward-model")
 
     # ------------------------------------------------------------------ #
@@ -110,7 +110,7 @@ def run_demo():
 
     print(f"\n  REWARD: {reward_bad:.4f}")
     if bd:
-        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","5%"),("R6_format","5%")]:
+        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_efficiency","10%"),("quality_ratio","oracle")]:
             v = bd.get(k, 0)
             bar = "#" * int(v * 20)
             print(f"  {k} ({wt}): {v:.2f}  [{bar:<20}]")
@@ -158,7 +158,7 @@ def run_demo():
 
     print(f"\n  REWARD: {reward_good:.4f}")
     if bd2:
-        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_reasoning","5%"),("R6_format","5%")]:
+        for k, wt in [("R0_allergy","gate"),("R1_activity","40%"),("R2_guideline","25%"),("R3_stewardship","15%"),("R4_dose","10%"),("R5_efficiency","10%"),("quality_ratio","oracle")]:
             v = bd2.get(k, 0)
             bar = "#" * int(v * 20)
             print(f"  {k} ({wt}): {v:.2f}  [{bar:<20}]")
