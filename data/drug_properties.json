@@ -1,5 +1,5 @@
 {
-  "_comment": "PALAK OWNS THIS FILE. Fill in all entries. Source: drug prescribing references.",
+  "_comment": "Drug prescribing reference for AMR-Steward. Source: ASHP Drug Information, IDSA guidelines.",
 
   "meropenem": {
     "class": "carbapenem",
@@ -39,7 +39,7 @@
       "CrCl_under_10": "15-20mg/kg IV q48-72h"
     },
     "allergy_flags": [],
-    "spectrum": ["gram_positive", "MRSA", "VRE_VSE"],
+    "spectrum": ["gram_positive", "MRSA", "VSE"],
     "notes": "Target AUC/MIC 400-600. Requires TDM. Nephrotoxic."
   },
 
@@ -92,32 +92,99 @@
     "notes": "Does NOT cover P. aeruginosa or Acinetobacter. Good for ESBL step-down."
   },
 
+  "cefepime": {
+    "class": "cephalosporin_4th_gen",
+    "standard_dose": "2g IV q8h",
+    "renal_adjustments": {
+      "CrCl_above_60": "2g IV q8h",
+      "CrCl_30_60": "2g IV q12h",
+      "CrCl_11_29": "2g IV q24h",
+      "CrCl_under_11": "1g IV q24h"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative", "P_aeruginosa", "gram_positive_non_MRSA"],
+    "notes": "Antipseudomonal cephalosporin. Does NOT cover ESBL reliably, CRE, MRSA, or anaerobes."
+  },
+
+  "cefazolin": {
+    "class": "cephalosporin_1st_gen",
+    "standard_dose": "2g IV q8h",
+    "renal_adjustments": {
+      "CrCl_above_50": "2g IV q8h",
+      "CrCl_30_50": "2g IV q12h",
+      "CrCl_10_30": "1g IV q12h",
+      "CrCl_under_10": "1g IV q24h"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["MSSA", "gram_positive_non_MRSA"],
+    "notes": "Preferred beta-lactam option for MSSA when tolerated. Does NOT cover MRSA, Enterococcus, or resistant gram-negatives."
+  },
+
   "colistin": {
     "class": "polymyxin",
-    "standard_dose": "5mg/kg/day (of CBA) IV divided q8-12h",
+    "standard_dose": "loading dose then renal-adjusted maintenance",
     "renal_adjustments": {
-      "CrCl_above_50": "5mg/kg/day divided q8h",
-      "CrCl_30_50": "3.5mg/kg/day divided q12h",
-      "CrCl_10_30": "2.5mg/kg/day divided q12h",
-      "CrCl_under_10": "2.5mg/kg/day divided q24h"
+      "CrCl_above_50": "specialist dosing by colistin base activity",
+      "CrCl_30_50": "reduce maintenance dose",
+      "CrCl_10_30": "substantial dose reduction",
+      "CrCl_under_10": "dose after dialysis/levels where available"
     },
     "allergy_flags": [],
-    "spectrum": ["gram_negative_CRE", "P_aeruginosa", "Acinetobacter"],
-    "notes": "Last-resort for pan-resistant gram-negatives. Significant nephrotoxicity. Use CBA dosing."
+    "spectrum": ["MDR_gram_negative", "CRE", "P_aeruginosa"],
+    "notes": "Toxicity-prone salvage agent. Nephrotoxic and neurotoxic; avoid when safer active beta-lactams are available."
   },
 
   "tigecycline": {
     "class": "glycylcycline",
-    "standard_dose": "100mg IV load, then 50mg IV q12h",
+    "standard_dose": "100mg IV loading dose, then 50mg IV q12h",
     "renal_adjustments": {
       "CrCl_above_50": "100mg load, then 50mg IV q12h",
       "CrCl_30_50": "100mg load, then 50mg IV q12h",
       "CrCl_10_30": "100mg load, then 50mg IV q12h",
-      "CrCl_under_10": "100mg load, then 25mg IV q12h"
+      "CrCl_under_10": "100mg load, then 50mg IV q12h"
     },
     "allergy_flags": ["tetracycline"],
-    "spectrum": ["gram_positive", "gram_negative_ESBL", "anaerobes", "atypicals"],
-    "notes": "Do NOT use for bacteremia (low serum levels) or UTI (insufficient urinary levels). IAI/pneumonia only. FDA warning for increased mortality."
+    "spectrum": ["gram_positive", "MRSA", "VRE", "some_CRE", "anaerobes"],
+    "notes": "Avoid for bacteremia and UTI because of low serum and urine concentrations."
+  },
+
+  "trimethoprim-sulfamethoxazole": {
+    "class": "folate_antagonist",
+    "standard_dose": "8-10mg/kg/day TMP component divided q8-12h",
+    "renal_adjustments": {
+      "CrCl_above_30": "usual dose",
+      "CrCl_15_30": "50% usual dose",
+      "CrCl_under_15": "avoid or use specialist dosing"
+    },
+    "allergy_flags": ["sulfonamide"],
+    "spectrum": ["urinary_gram_negative", "some_MRSA"],
+    "notes": "Useful oral step-down only when susceptible. Monitor potassium and renal function."
+  },
+
+  "nitrofurantoin": {
+    "class": "nitrofuran",
+    "standard_dose": "100mg PO q12h",
+    "renal_adjustments": {
+      "CrCl_above_30": "100mg PO q12h",
+      "CrCl_under_30": "avoid"
+    },
+    "allergy_flags": ["nitrofuran"],
+    "spectrum": ["lower_UTI_gram_negative", "Enterococcus"],
+    "notes": "Lower cystitis only. Do NOT use for pyelonephritis, bacteremia, or pneumonia."
+  },
+
+  "fosfomycin": {
+    "class": "phosphonic_acid_derivative",
+    "standard_dose": "3g PO once for uncomplicated cystitis",
+    "renal_adjustments": {
+      "CrCl_above_50": "3g PO once",
+      "CrCl_30_50": "3g PO once",
+      "CrCl_10_30": "3g PO once with caution",
+      "CrCl_under_10": "avoid or specialist dosing"
+    },
+    "allergy_flags": [],
+    "spectrum": ["lower_UTI_gram_negative", "some_ESBL", "Enterococcus"],
+    "notes": "Cystitis only. Do NOT use for bacteremia, pneumonia, or pyelonephritis in this environment."
   },
 
   "linezolid": {
@@ -130,47 +197,36 @@
       "CrCl_under_10": "600mg IV/PO q12h"
     },
     "allergy_flags": [],
-    "spectrum": ["gram_positive", "MRSA", "VRE"],
-    "notes": "100% oral bioavailability. No renal adjustment. Monitor for serotonin syndrome, bone marrow suppression >2 weeks."
+    "spectrum": ["MRSA", "VRE", "gram_positive"],
+    "notes": "Useful for MRSA pneumonia and VRE. Monitor cytopenias and serotonergic interactions."
   },
 
-  "trimethoprim-sulfamethoxazole": {
-    "class": "folate_inhibitor",
-    "standard_dose": "1 DS tab (160/800mg) PO q12h",
+  "azithromycin": {
+    "class": "macrolide",
+    "standard_dose": "500mg IV/PO q24h",
     "renal_adjustments": {
-      "CrCl_above_30": "1 DS tab PO q12h",
-      "CrCl_15_30": "1 DS tab PO q24h",
-      "CrCl_under_15": "avoid"
+      "CrCl_above_50": "500mg IV/PO q24h",
+      "CrCl_30_50": "500mg IV/PO q24h",
+      "CrCl_10_30": "500mg IV/PO q24h",
+      "CrCl_under_10": "500mg IV/PO q24h"
     },
-    "allergy_flags": ["sulfa"],
-    "spectrum": ["gram_negative_susceptible", "MSSA", "Stenotrophomonas"],
-    "notes": "Preferred oral agent for susceptible UTI. Contraindicated in severe renal impairment. Check local resistance rates."
-  },
-
-  "nitrofurantoin": {
-    "class": "nitrofuran",
-    "standard_dose": "100mg PO q12h (macrocrystal)",
-    "renal_adjustments": {
-      "CrCl_above_45": "100mg PO q12h",
-      "CrCl_30_45": "100mg PO q12h (use with caution)",
-      "CrCl_under_30": "avoid (inadequate urinary levels, increased toxicity)"
-    },
-    "allergy_flags": [],
-    "spectrum": ["gram_negative_urine_susceptible", "MRSA_UTI"],
-    "notes": "UTI use ONLY — no systemic activity. Avoid in pyelonephritis. Adequate urine levels require CrCl >30."
+    "allergy_flags": ["macrolide"],
+    "spectrum": ["atypical_respiratory_pathogens"],
+    "notes": "Atypical pneumonia coverage. Not appropriate definitive monotherapy for resistant bloodstream infections."
   },
 
   "ampicillin": {
     "class": "aminopenicillin",
-    "standard_dose": "2g IV q4-6h",
+    "standard_dose": "2g IV q4h",
     "renal_adjustments": {
       "CrCl_above_50": "2g IV q4h",
-      "CrCl_10_50": "2g IV q6-8h",
-      "CrCl_under_10": "2g IV q12h"
+      "CrCl_30_50": "2g IV q6h",
+      "CrCl_10_30": "2g IV q8-12h",
+      "CrCl_under_10": "2g IV q12-24h"
     },
     "allergy_flags": ["penicillin"],
-    "spectrum": ["gram_positive_non_MRSA", "Enterococcus_VSE", "Listeria"],
-    "notes": "Preferred agent for ampicillin-susceptible Enterococcus bacteremia."
+    "spectrum": ["Enterococcus_VSE", "some_gram_positive"],
+    "notes": "Preferred for ampicillin-susceptible Enterococcus. Does NOT cover VRE, MRSA, or resistant gram-negatives."
   },
 
   "ampicillin-sulbactam": {
@@ -210,34 +266,6 @@
     "notes": "Equivalent to oxacillin for MSSA. Hepatically eliminated — preferred in renal failure."
   },
 
-  "cefazolin": {
-    "class": "cephalosporin_1st_gen",
-    "standard_dose": "2g IV q8h",
-    "renal_adjustments": {
-      "CrCl_above_55": "2g IV q8h",
-      "CrCl_35_54": "2g IV q12h",
-      "CrCl_11_34": "2g IV q24h",
-      "CrCl_under_10": "1g IV q24h"
-    },
-    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
-    "spectrum": ["MSSA", "gram_negative_susceptible_non_Pseudo"],
-    "notes": "Alternative to oxacillin for MSSA (preferred in outpatient). Does NOT cover MRSA, Enterococcus, Pseudomonas."
-  },
-
-  "cefepime": {
-    "class": "cephalosporin_4th_gen",
-    "standard_dose": "2g IV q8h",
-    "renal_adjustments": {
-      "CrCl_above_60": "2g IV q8h",
-      "CrCl_30_60": "2g IV q12h",
-      "CrCl_11_29": "2g IV q24h",
-      "CrCl_under_10": "1g IV q24h"
-    },
-    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
-    "spectrum": ["gram_negative", "P_aeruginosa"],
-    "notes": "Anti-pseudomonal cephalosporin. Covers most gram-negatives including Pseudomonas. Does NOT cover MRSA or anaerobes."
-  },
-
   "imipenem": {
     "class": "carbapenem",
     "standard_dose": "500mg IV q6h",
@@ -263,6 +291,34 @@
     },
     "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
     "spectrum": ["gram_negative_KPC", "CRE_KPC"],
-    "notes": "Active against KPC-producing CRE. Does NOT cover MBL-producing (NDM, VIM, IMP). Alternative to ceftazidime-avibactam."
+    "notes": "Active against KPC-producing CRE. Does NOT cover MBL-producing (NDM, VIM, IMP)."
+  },
+
+  "ceftriaxone + metronidazole": {
+    "class": "combination",
+    "standard_dose": "ceftriaxone 2g IV q24h + metronidazole 500mg IV/PO q8h",
+    "renal_adjustments": {
+      "CrCl_above_50": "ceftriaxone 2g IV q24h + metronidazole 500mg q8h",
+      "CrCl_30_50": "ceftriaxone 2g IV q24h + metronidazole 500mg q8h",
+      "CrCl_10_30": "ceftriaxone 2g IV q24h + metronidazole 500mg q8h",
+      "CrCl_under_10": "ceftriaxone 2g IV q24h + metronidazole 500mg q12h"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative_susceptible", "anaerobes"],
+    "notes": "Common intra-abdominal regimen when Pseudomonas and ESBL risk are low."
+  },
+
+  "ampicillin + ceftriaxone + metronidazole": {
+    "class": "combination",
+    "standard_dose": "ampicillin 2g IV q4h + ceftriaxone 2g IV q24h + metronidazole 500mg IV/PO q8h",
+    "renal_adjustments": {
+      "CrCl_above_50": "ampicillin 2g q4h + ceftriaxone 2g q24h + metronidazole 500mg q8h",
+      "CrCl_30_50": "ampicillin 2g q6h + ceftriaxone 2g q24h + metronidazole 500mg q8h",
+      "CrCl_10_30": "ampicillin 2g q8-12h + ceftriaxone 2g q24h + metronidazole 500mg q8h",
+      "CrCl_under_10": "ampicillin 2g q12-24h + ceftriaxone 2g q24h + metronidazole 500mg q12h"
+    },
+    "allergy_flags": ["penicillin", "cephalosporin"],
+    "spectrum": ["Enterococcus_VSE", "gram_negative_susceptible", "anaerobes"],
+    "notes": "Combination for Enterococcus plus intra-abdominal gram-negative and anaerobic coverage."
   }
 }

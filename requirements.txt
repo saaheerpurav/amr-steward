@@ -1,9 +1,20 @@
+# AMR-Steward — Backend dependencies (Bhatia Task B9)
+# Pinned to compatible ranges for reproducibility.
+# For HuggingFace Spaces: pip install -r requirements.txt
+
+# ── OpenEnv ───────────────────────────────────────────────────────────────────
 openenv
-fastapi
-uvicorn[standard]
-pydantic
-torch
-numpy
-pandas
-trl
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi>=0.111.0,<1.0.0
+uvicorn[standard]>=0.29.0,<1.0.0
+pydantic>=2.7.0,<3.0.0
+
+# ── Data / ML ─────────────────────────────────────────────────────────────────
+torch>=2.2.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# ── Training (Saaheer's pipeline — needed for Colab + HF) ─────────────────────
+trl>=0.8.0
 unsloth

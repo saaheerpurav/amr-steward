@@ -115,10 +115,11 @@ def R1_microbiological_activity(prescription: dict, patient: PatientCase, eucast
     return 1.0 if classification == "S" else 0.0
 
 
-def R2_guideline_concordance(prescription: dict, patient: PatientCase) -> float:
+def R2_guideline_concordance(prescription: dict, patient: PatientCase, idsa: dict | None = None) -> float:
     """R2: Is the prescribed drug the IDSA-recommended agent?
     Returns 1.0 for first-line, 0.5 for listed alternative, 0.0 otherwise."""
-    idsa = _get_idsa()
+    if idsa is None:
+        idsa = _get_idsa()
     drug = _normalize_drug(prescription.get("drug", ""))
     syndrome = patient.infection_site
     idsa_key = _organism_to_idsa_key(patient.organism, patient.phenotype)
@@ -186,13 +187,13 @@ def R3_stewardship(prescription: dict, patient: PatientCase, eucast, r1_score: f
         return max(0.0, 1.0 - 0.3 * (prescribed_score - min_spectrum))
 
 
-def R4_dose_correctness(prescription: dict, patient: PatientCase) -> float:
+def R4_dose_correctness(prescription: dict, patient: PatientCase, drug_properties: dict | None = None) -> float:
     """R4: Is the dose correct for this patient's renal function?
     Returns 1.0 if correct, 0.5 if within one tier, 0.0 if wrong."""
     drug = _normalize_drug(prescription.get("drug", ""))
     prescribed_dose = prescription.get("dose", "").lower().strip()
     crcl = patient.creatinine_clearance
-    drug_props = _get_drug_props()
+    drug_props = drug_properties if drug_properties is not None else _get_drug_props()
 
     props = drug_props.get(drug, {})
     if not props or "renal_adjustments" not in props:
@@ -242,7 +243,7 @@ def R4_dose_correctness(prescription: dict, patient: PatientCase) -> float:
     return 0.0
 
 
-def R5_reasoning_grounding(tool_call_history: list[str]) -> float:
+def R5_reasoning_grounding(tool_call_history: list[str], prescription: dict | None = None) -> float:
     """R5: Did the agent actually investigate before committing?
     Rewards systematic investigation. Penalizes blind guessing.
     Returns 0.0-1.0 based on quality of investigation."""
@@ -252,15 +253,12 @@ def R5_reasoning_grounding(tool_call_history: list[str]) -> float:
     score = 0.0
     history_text = " ".join(tool_call_history).lower()
 
-    # Must have checked resistance
     if "interpret_resistance" in history_text or "mic" in history_text or "eucast" in history_text:
         score += 0.5
 
-    # Should have checked guidelines
-    if "guideline" in history_text or "idsa" in history_text:
+    if "guideline" in history_text or "idsa" in history_text or "check_guideline" in history_text:
         score += 0.3
 
-    # Should have assessed patient factors
     if "assess_patient" in history_text or "crcl" in history_text or "renal" in history_text:
         score += 0.2
 
@@ -272,14 +270,16 @@ def compute_total_reward(
     patient: PatientCase,
     tool_call_history: list[str],
     eucast,
+    idsa: dict | None = None,
+    drug_properties: dict | None = None,
 ) -> tuple[float, dict]:
     """Compute weighted total reward. Returns (total, breakdown dict).
     Weights: R1=40%, R2=25%, R3=15%, R4=10%, R5=10%"""
     r1 = R1_microbiological_activity(prescription, patient, eucast)
-    r2 = R2_guideline_concordance(prescription, patient)
+    r2 = R2_guideline_concordance(prescription, patient, idsa)
     r3 = R3_stewardship(prescription, patient, eucast, r1)
-    r4 = R4_dose_correctness(prescription, patient)
-    r5 = R5_reasoning_grounding(tool_call_history)
+    r4 = R4_dose_correctness(prescription, patient, drug_properties)
+    r5 = R5_reasoning_grounding(tool_call_history, prescription)
 
     total = round(0.40*r1 + 0.25*r2 + 0.15*r3 + 0.10*r4 + 0.10*r5, 4)
 

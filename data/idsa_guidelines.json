@@ -1,6 +1,6 @@
 {
   "_comment": "IDSA clinical practice guidelines. Source: IDSA 2022/2023 guidelines.",
-  "_structure": "syndrome → organism → {first_line, dose, duration, notes, alternatives}",
+  "_structure": "syndrome -> organism -> {first_line, dose, duration, notes, alternatives}",
 
   "bacteremia": {
     "K. pneumoniae (susceptible)": {
@@ -27,30 +27,30 @@
     "E. coli (susceptible)": {
       "first_line": "ceftriaxone",
       "dose": "2g IV q24h",
-      "duration": "14 days",
-      "notes": "Preferred agent for gram-negative bacteremia due to susceptible E. coli.",
-      "alternatives": ["piperacillin-tazobactam", "ertapenem"]
+      "duration": "7-14 days",
+      "notes": "Susceptible E. coli bloodstream infection. De-escalate to the narrowest active agent once stable.",
+      "alternatives": ["cefepime", "piperacillin-tazobactam"]
     },
     "E. coli (ESBL)": {
       "first_line": "ertapenem",
       "dose": "1g IV q24h",
-      "duration": "14 days",
-      "notes": "ESBL E. coli — carbapenems are drug of choice. Meropenem if critically ill.",
+      "duration": "7-14 days",
+      "notes": "ESBL-producing E. coli bacteremia. Carbapenem therapy is preferred for invasive infection.",
       "alternatives": ["meropenem"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "piperacillin-tazobactam",
-      "dose": "4.5g IV q6h",
-      "duration": "14 days",
-      "notes": "Anti-pseudomonal beta-lactam preferred. Get susceptibilities to guide de-escalation.",
-      "alternatives": ["cefepime", "meropenem"]
+      "first_line": "cefepime",
+      "dose": "2g IV q8h",
+      "duration": "7-14 days",
+      "notes": "Use an active antipseudomonal beta-lactam and narrow based on susceptibility.",
+      "alternatives": ["piperacillin-tazobactam", "meropenem"]
     },
     "S. aureus (MSSA)": {
-      "first_line": "oxacillin",
-      "dose": "2g IV q4h",
-      "duration": "14-42 days depending on source",
-      "notes": "Anti-staphylococcal penicillin is preferred over vancomycin for MSSA.",
-      "alternatives": ["cefazolin", "nafcillin"]
+      "first_line": "cefazolin",
+      "dose": "2g IV q8h",
+      "duration": "14-42 days depending on source and complications",
+      "notes": "MSSA bacteremia should receive an anti-staphylococcal beta-lactam when tolerated.",
+      "alternatives": ["nafcillin", "oxacillin"]
     },
     "S. aureus (MRSA)": {
       "first_line": "vancomycin",
@@ -62,91 +62,112 @@
     "Enterococcus (VSE)": {
       "first_line": "ampicillin",
       "dose": "2g IV q4h",
-      "duration": "14 days (uncomplicated); 28-42 days (endocarditis)",
-      "notes": "Ampicillin is preferred for ampicillin-susceptible Enterococcus. Add gentamicin for endocarditis.",
+      "duration": "7-14 days",
+      "notes": "Vancomycin-susceptible, ampicillin-susceptible Enterococcus. Ampicillin is preferred when susceptible.",
       "alternatives": ["vancomycin"]
     },
     "Enterococcus (VRE)": {
       "first_line": "linezolid",
       "dose": "600mg IV/PO q12h",
-      "duration": "14-42 days",
-      "notes": "VRE bacteremia. Daptomycin preferred if high inoculum. Linezolid for VRE faecium.",
+      "duration": "7-14 days",
+      "notes": "Vancomycin-resistant Enterococcus. Use linezolid or daptomycin based on syndrome and susceptibility.",
       "alternatives": ["daptomycin"]
     }
   },
 
   "UTI": {
     "E. coli (susceptible)": {
-      "first_line": "trimethoprim-sulfamethoxazole",
-      "dose": "1 DS tab (160/800mg) PO q12h",
-      "duration": "3 days (uncomplicated); 7-14 days (complicated/pyelonephritis)",
-      "notes": "First-line for uncomplicated UTI if local resistance <20%. Confirm susceptibility.",
-      "alternatives": ["nitrofurantoin", "ceftriaxone"]
-    },
-    "K. pneumoniae (susceptible)": {
-      "first_line": "trimethoprim-sulfamethoxazole",
-      "dose": "1 DS tab (160/800mg) PO q12h",
-      "duration": "7-14 days",
-      "notes": "Oral step-down preferred when susceptible. Ceftriaxone IV for pyelonephritis.",
-      "alternatives": ["ceftriaxone", "nitrofurantoin"]
-    },
-    "K. pneumoniae (CRE)": {
-      "first_line": "ceftazidime-avibactam",
-      "dose": "2.5g IV q8h",
-      "duration": "7-14 days",
-      "notes": "CRE UTI — systemic therapy required. Confirm KPC vs. MBL genotype.",
-      "alternatives": ["meropenem-vaborbactam", "colistin"]
+      "first_line": "ceftriaxone",
+      "dose": "1g IV q24h",
+      "duration": "7 days",
+      "notes": "Complicated UTI or pyelonephritis. Step down to active oral therapy when clinically stable.",
+      "alternatives": ["trimethoprim-sulfamethoxazole", "nitrofurantoin"]
     },
     "E. coli (ESBL)": {
       "first_line": "ertapenem",
       "dose": "1g IV q24h",
       "duration": "7-14 days",
-      "notes": "ESBL UTI — carbapenems for complicated/pyelonephritis.",
+      "notes": "ESBL UTI — carbapenems for complicated infection or pyelonephritis.",
       "alternatives": ["meropenem"]
     },
+    "K. pneumoniae (susceptible)": {
+      "first_line": "ceftriaxone",
+      "dose": "1g IV q24h",
+      "duration": "7 days",
+      "notes": "Susceptible Klebsiella complicated UTI. Narrow therapy once susceptibility is known.",
+      "alternatives": ["trimethoprim-sulfamethoxazole", "nitrofurantoin"]
+    },
+    "K. pneumoniae (CRE)": {
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "7 days",
+      "notes": "CRE complicated UTI. Confirm susceptibility and avoid inactive carbapenems.",
+      "alternatives": ["meropenem-vaborbactam", "colistin"]
+    },
     "P. aeruginosa (susceptible)": {
-      "first_line": "piperacillin-tazobactam",
-      "dose": "4.5g IV q6h",
+      "first_line": "cefepime",
+      "dose": "2g IV q8h",
       "duration": "10-14 days",
       "notes": "Pseudomonal UTI typically requires anti-pseudomonal beta-lactam.",
-      "alternatives": ["cefepime", "meropenem"]
+      "alternatives": ["piperacillin-tazobactam", "meropenem"]
+    },
+    "S. aureus (MRSA)": {
+      "first_line": "vancomycin",
+      "dose": "25-30 mg/kg/day IV divided q8-12h",
+      "duration": "7-14 days",
+      "notes": "MRSA UTI — systemic therapy required.",
+      "alternatives": ["linezolid"]
+    },
+    "Enterococcus (VSE)": {
+      "first_line": "ampicillin",
+      "dose": "2g IV q4h",
+      "duration": "7 days",
+      "notes": "VSE UTI — ampicillin if susceptible. Step down to oral amoxicillin.",
+      "alternatives": ["vancomycin"]
+    },
+    "Enterococcus (VRE)": {
+      "first_line": "linezolid",
+      "dose": "600mg IV/PO q12h",
+      "duration": "7-14 days",
+      "notes": "VRE UTI — linezolid or daptomycin.",
+      "alternatives": ["daptomycin"]
     }
   },
 
   "pneumonia": {
     "S. aureus (MRSA)": {
       "first_line": "vancomycin",
-      "dose": "25-30 mg/kg/day IV divided q8-12h",
-      "duration": "7-21 days",
-      "notes": "MRSA pneumonia — vancomycin or linezolid. Linezolid may have better lung penetration.",
+      "dose": "15-20mg/kg IV q8-12h with AUC-guided monitoring",
+      "duration": "7 days",
+      "notes": "MRSA pneumonia. Linezolid is a common alternative; do not use daptomycin for pneumonia.",
       "alternatives": ["linezolid"]
     },
     "S. aureus (MSSA)": {
-      "first_line": "oxacillin",
-      "dose": "2g IV q4h",
+      "first_line": "cefazolin",
+      "dose": "2g IV q8h",
       "duration": "7-21 days",
-      "notes": "Anti-staphylococcal penicillin preferred over vancomycin for MSSA pneumonia.",
-      "alternatives": ["cefazolin", "nafcillin"]
+      "notes": "MSSA pneumonia — anti-staphylococcal beta-lactam preferred over vancomycin.",
+      "alternatives": ["nafcillin", "oxacillin"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "piperacillin-tazobactam",
-      "dose": "4.5g IV q6h",
-      "duration": "7-14 days",
-      "notes": "HAP/VAP due to Pseudomonas — anti-pseudomonal beta-lactam. Avoid daptomycin (lung surfactant).",
-      "alternatives": ["cefepime", "meropenem"]
+      "first_line": "cefepime",
+      "dose": "2g IV q8h",
+      "duration": "7 days",
+      "notes": "HAP/VAP due to susceptible Pseudomonas. Avoid daptomycin (inactivated by lung surfactant).",
+      "alternatives": ["piperacillin-tazobactam", "meropenem"]
     },
     "K. pneumoniae (susceptible)": {
       "first_line": "ceftriaxone",
       "dose": "2g IV q24h",
-      "duration": "7-14 days",
-      "notes": "CAP-appropriate regimen. Escalate to carbapenem if ESBL suspected.",
-      "alternatives": ["ampicillin-sulbactam", "ertapenem"]
+      "duration": "7 days",
+      "notes": "Susceptible Klebsiella pneumonia. De-escalate from broad empiric therapy when possible.",
+      "alternatives": ["cefepime"]
     },
     "K. pneumoniae (CRE)": {
       "first_line": "ceftazidime-avibactam",
       "dose": "2.5g IV q8h",
       "duration": "10-14 days",
-      "notes": "CRE pneumonia — ceftazidime-avibactam for KPC. Confirm susceptibility pattern.",
+      "notes": "CRE pneumonia — confirm susceptibility pattern.",
       "alternatives": ["meropenem-vaborbactam"]
     },
     "E. coli (susceptible)": {
@@ -176,9 +197,9 @@
     "E. coli (susceptible)": {
       "first_line": "piperacillin-tazobactam",
       "dose": "4.5g IV q6h",
-      "duration": "4-7 days (post source control)",
-      "notes": "Community-onset IAI — covers gram-negatives and anaerobes.",
-      "alternatives": ["ertapenem", "ceftriaxone"]
+      "duration": "4-7 days after adequate source control",
+      "notes": "Complicated intra-abdominal infection needs gram-negative and anaerobic coverage plus source control.",
+      "alternatives": ["ceftriaxone + metronidazole", "ertapenem"]
     },
     "E. coli (ESBL)": {
       "first_line": "ertapenem",
@@ -190,9 +211,9 @@
     "K. pneumoniae (susceptible)": {
       "first_line": "piperacillin-tazobactam",
       "dose": "4.5g IV q6h",
-      "duration": "4-7 days",
-      "notes": "Intra-abdominal source. Good coverage of gram-negatives + anaerobes.",
-      "alternatives": ["ertapenem", "ceftriaxone"]
+      "duration": "4-7 days after adequate source control",
+      "notes": "Susceptible Klebsiella intra-abdominal infection. Maintain anaerobic coverage.",
+      "alternatives": ["ceftriaxone + metronidazole", "ertapenem"]
     },
     "K. pneumoniae (CRE)": {
       "first_line": "ceftazidime-avibactam",
@@ -202,11 +223,11 @@
       "alternatives": ["meropenem-vaborbactam"]
     },
     "Enterococcus (VSE)": {
-      "first_line": "ampicillin-sulbactam",
-      "dose": "3g IV q6h",
-      "duration": "4-7 days",
-      "notes": "Enterococcal IAI — ampicillin-sulbactam covers enterococci + anaerobes.",
-      "alternatives": ["piperacillin-tazobactam", "vancomycin"]
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days after adequate source control",
+      "notes": "Covers susceptible Enterococcus faecalis plus gram-negative and anaerobic intra-abdominal flora.",
+      "alternatives": ["ampicillin + ceftriaxone + metronidazole"]
     },
     "Enterococcus (VRE)": {
       "first_line": "linezolid",
