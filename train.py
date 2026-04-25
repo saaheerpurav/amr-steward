@@ -20,7 +20,11 @@ except ImportError:
 from trl import GRPOConfig, GRPOTrainer
 
 sys.path.insert(0, str(Path(__file__).parent))
-from env.environment import AMREnvironment, _get_world_model
+from env.environment import AMREnvironment, _get_world_model  # noqa: E402
+
+# NOTE: env.step() now returns AMRObservation only (OpenEnv-compliant).
+#       Reward is on obs.reward, terminal flag on obs.done. Callers that used
+#       the old (obs, reward, done) tuple must be updated.
 from env.reward import (
     parse_prescription_from_text,
     compute_total_reward,

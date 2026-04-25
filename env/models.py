@@ -1,19 +1,27 @@
 """
 env/models.py — Data models for AMR-Steward OpenEnv environment.
 Owns: Bhatia
-Uses both dataclasses (for internal state) and Pydantic (for API I/O).
+
+These models extend the Meta-PyTorch OpenEnv (openenv-core) base classes:
+  - AMRAction       extends openenv.core.env_server.Action
+  - AMRObservation  extends openenv.core.env_server.Observation
+  - AMRState        extends openenv.core.env_server.State    (gives episode_id + step_count)
+
+PatientCase remains a plain dataclass — it's internal-only state, not part of
+the wire protocol the agent sees.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from openenv.core.env_server import Action, Observation, State
+from pydantic import Field, field_validator
 
 
 # ---------------------------------------------------------------------------
-# Internal state dataclasses (used inside the environment)
+# Internal state dataclass (NOT exposed to the agent over the wire)
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -22,7 +30,7 @@ class PatientCase:
     age: int
     sex: str                           # "M" | "F"
     infection_site: str                # "bacteremia" | "UTI" | "pneumonia" | "intra-abdominal"
-    organism: str                      # "K. pneumoniae" | "E. coli" | "P. aeruginosa" | "S. aureus" | "Enterococcus"
+    organism: str                      # "K. pneumoniae" | "E. coli" | ...
     creatinine_clearance: float        # mL/min — kidney function proxy
     allergies: list[str]               # e.g. ["penicillin"]
     antibiogram: dict[str, float]      # drug → MIC value in mg/L
@@ -30,30 +38,92 @@ class PatientCase:
     curriculum_level: int              # 1 | 2 | 3
 
 
-@dataclass
-class AMRAction:
-    """An action the RL agent can take in the environment."""
-    action_type: str                   # "INVESTIGATE" | "COMMIT"
-    tool_name: str | None = None       # "interpret_resistance" | "check_guideline" | "assess_patient_factors"
-    tool_arg: str | None = None        # drug name or syndrome name, depending on tool
-    prescription: dict[str, Any] | None = None  # if COMMIT: {drug, dose, duration, justification}
+# ---------------------------------------------------------------------------
+# OpenEnv-compliant Action
+# ---------------------------------------------------------------------------
+
+class AMRAction(Action):
+    """
+    Action the agent emits each step.
+
+    Two action types:
+      - INVESTIGATE: call a diagnostic tool (consumes 1 budget)
+      - COMMIT:      finalise prescription (terminates episode, computes reward)
+    """
+
+    action_type: str = Field(
+        ...,
+        description="'INVESTIGATE' to call a diagnostic tool, 'COMMIT' to finalise prescription.",
+        examples=["INVESTIGATE", "COMMIT"],
+    )
+    tool_name: Optional[str] = Field(
+        default=None,
+        description="Required when action_type='INVESTIGATE'. One of: "
+                    "interpret_resistance | check_guideline | assess_patient_factors.",
+    )
+    tool_arg: Optional[str] = Field(
+        default=None,
+        description="Argument for the tool — e.g. drug name or syndrome name.",
+    )
+    prescription: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Required when action_type='COMMIT'. Keys: drug, dose, duration, justification.",
+    )
+
+    @field_validator("action_type")
+    @classmethod
+    def _validate_action_type(cls, v: str) -> str:
+        allowed = {"INVESTIGATE", "COMMIT"}
+        if v not in allowed:
+            raise ValueError(f"action_type must be one of {allowed}, got '{v}'")
+        return v
+
+    @field_validator("tool_name")
+    @classmethod
+    def _validate_tool_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        allowed = {"interpret_resistance", "check_guideline", "assess_patient_factors"}
+        if v not in allowed:
+            raise ValueError(f"tool_name must be one of {allowed}, got '{v}'")
+        return v
 
 
-@dataclass
-class AMRObservation:
-    """What the agent sees after each step."""
-    patient_text: str                  # plain English patient description
-    tool_results: list[str] = field(default_factory=list)   # results of tools called so far
-    budget_remaining: int = 5
-    world_model_rankings: str = ""     # JEPA information-gain predictions (populated by Saaheer's integration)
-    done: bool = False
+# ---------------------------------------------------------------------------
+# OpenEnv-compliant Observation
+# ---------------------------------------------------------------------------
+
+class AMRObservation(Observation):
+    """
+    What the agent sees after each reset() / step().
+
+    Inherits `done`, `reward`, and `metadata` from the OpenEnv base.
+    `metadata` carries the per-component reward breakdown on COMMIT.
+    """
+
+    patient_text: str = Field(
+        default="",
+        description="Plain-English patient description (age/sex/site/organism/CrCl/allergies/antibiogram).",
+    )
+    tool_results: List[str] = Field(
+        default_factory=list,
+        description="Results from INVESTIGATE tool calls so far this episode.",
+    )
+    budget_remaining: int = Field(
+        default=5,
+        description="Remaining INVESTIGATE budget for this episode.",
+    )
+    world_model_rankings: str = Field(
+        default="",
+        description="JEPA world-model predicted-information-gain rankings for the next tool call.",
+    )
 
     def to_text(self) -> str:
         """Render the full observation as a single string the LLM sees."""
         parts = [self.patient_text]
         if self.tool_results:
             parts.append("Tool results so far:")
-            parts.extend(f"  • {r}" for r in self.tool_results)
+            parts.extend(f"  - {r}" for r in self.tool_results)
         if self.world_model_rankings:
             parts.append(self.world_model_rankings)
         parts.append(f"Budget remaining: {self.budget_remaining} tool call(s).")
@@ -63,79 +133,27 @@ class AMRObservation:
 
 
 # ---------------------------------------------------------------------------
-# Pydantic request / response models (used by FastAPI endpoints)
+# OpenEnv-compliant State
 # ---------------------------------------------------------------------------
 
-class StepRequest(BaseModel):
-    """Body for POST /step."""
-    action_type: str = Field(
-        ...,
-        description="'INVESTIGATE' to call a diagnostic tool, 'COMMIT' to finalize prescription.",
-        examples=["INVESTIGATE", "COMMIT"],
-    )
-    tool_name: str | None = Field(
+class AMRState(State):
+    """
+    Internal episode metadata. Inherits `episode_id` and `step_count` from
+    OpenEnv's base State (this is what gets returned by GET /state).
+
+    AMR-specific fields are extra (the base class allows it via
+    `model_config = ConfigDict(extra='allow')`).
+    """
+
+    curriculum_level: int = Field(default=1, description="Curriculum stage (1, 2, or 3).")
+    budget_remaining: int = Field(default=5, description="Remaining INVESTIGATE budget.")
+    done: bool = Field(default=False, description="Whether the episode has terminated.")
+    patient: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Required when action_type='INVESTIGATE'. One of: interpret_resistance, check_guideline, assess_patient_factors.",
+        description="Serialised PatientCase for the active episode (debugging only).",
     )
-    tool_arg: str | None = Field(
+    tool_results: List[str] = Field(default_factory=list)
+    last_reward_breakdown: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Argument for the tool — e.g. drug name or syndrome name.",
+        description="Per-component reward breakdown from the last COMMIT.",
     )
-    prescription: dict[str, Any] | None = Field(
-        default=None,
-        description="Required when action_type='COMMIT'. Keys: drug, dose, duration, justification.",
-    )
-
-    @field_validator("action_type")
-    @classmethod
-    def validate_action_type(cls, v: str) -> str:
-        allowed = {"INVESTIGATE", "COMMIT"}
-        if v not in allowed:
-            raise ValueError(f"action_type must be one of {allowed}, got '{v}'")
-        return v
-
-    @field_validator("tool_name")
-    @classmethod
-    def validate_tool_name(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        allowed = {"interpret_resistance", "check_guideline", "assess_patient_factors"}
-        if v not in allowed:
-            raise ValueError(f"tool_name must be one of {allowed}, got '{v}'")
-        return v
-
-
-class ObservationResponse(BaseModel):
-    """Serialized AMRObservation returned by /reset and /step."""
-    patient_text: str
-    tool_results: list[str]
-    budget_remaining: int
-    world_model_rankings: str
-    done: bool
-    observation_text: str = Field(description="Full rendered observation string for the LLM.")
-
-
-class StepResponse(BaseModel):
-    """Response body for POST /step."""
-    observation: ObservationResponse
-    reward: float
-    done: bool
-    reward_breakdown: dict[str, float] | None = Field(
-        default=None,
-        description="Per-component reward breakdown. Populated on COMMIT actions.",
-    )
-
-
-class StateResponse(BaseModel):
-    """Full serialized episode state from GET /state."""
-    patient: dict[str, Any] | None
-    tool_results: list[str]
-    budget_remaining: int
-    done: bool
-    curriculum_level: int
-    episode_step: int
-
-
-class HealthResponse(BaseModel):
-    status: str
-    version: str

@@ -2,10 +2,13 @@
 env/environment.py — AMR-Steward OpenEnv environment.
 Owns: Bhatia
 
-Implements the three OpenEnv lifecycle methods:
-  reset()  → AMRObservation
-  step()   → (AMRObservation, reward, done)
-  state()  → dict
+Subclasses openenv.core.env_server.Environment so it works with the official
+Meta-PyTorch OpenEnv HTTP server, web interface, and HTTPEnvClient.
+
+Lifecycle:
+  reset(seed, episode_id, curriculum_level=1) -> AMRObservation
+  step(action)                                -> AMRObservation  (reward inside obs.reward)
+  state                                       -> AMRState        (property, has episode_id + step_count)
 """
 
 from __future__ import annotations
@@ -13,24 +16,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-from .models import AMRAction, AMRObservation, PatientCase
+from openenv.core.env_server import Environment
+
+from .models import AMRAction, AMRObservation, AMRState, PatientCase
 from .world_model import AMRWorldModel, AVAILABLE_TOOLS, enrich_observation
 
 logger = logging.getLogger(__name__)
-
-# Shared world model instance (random init; updated during training)
-_world_model: AMRWorldModel | None = None
-
-
-def _get_world_model() -> AMRWorldModel:
-    global _world_model
-    if _world_model is None:
-        _world_model = AMRWorldModel()
-        _world_model.eval()
-    return _world_model
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -38,8 +34,7 @@ def _get_world_model() -> AMRWorldModel:
 
 BUDGET_BY_LEVEL: dict[int, int] = {1: 5, 2: 4, 3: 3}
 
-# Resolve the repo-root data directory regardless of CWD.
-_HERE = Path(__file__).parent.parent          # project root
+_HERE = Path(__file__).parent.parent
 DATA_DIR = _HERE / "data"
 
 
@@ -59,13 +54,13 @@ def _load_json(filename: str) -> dict:
 _idsa: dict | None = None
 _drug_properties: dict | None = None
 _eucast: Any | None = None
+_world_model: AMRWorldModel | None = None
 
 
 def _get_idsa() -> dict:
     global _idsa
     if _idsa is None:
         raw = _load_json("idsa_guidelines.json")
-        # Strip internal comment keys that start with "_"
         _idsa = {k: v for k, v in raw.items() if not k.startswith("_")}
     return _idsa
 
@@ -79,7 +74,6 @@ def _get_drug_properties() -> dict:
 
 
 def _get_eucast():
-    """Return the EUCAST parser module (lazy import to avoid circular deps)."""
     global _eucast
     if _eucast is None:
         import sys
@@ -92,15 +86,19 @@ def _get_eucast():
     return _eucast
 
 
+def _get_world_model() -> AMRWorldModel:
+    global _world_model
+    if _world_model is None:
+        _world_model = AMRWorldModel()
+        _world_model.eval()
+    return _world_model
+
+
 # ---------------------------------------------------------------------------
-# Tool functions (Task B4)
+# Tool functions
 # ---------------------------------------------------------------------------
 
 def interpret_resistance(drug: str, patient: PatientCase, eucast) -> str:
-    """
-    Classify a drug's MIC from the patient's antibiogram using EUCAST.
-    Returns a plain English result string.
-    """
     mic = patient.antibiogram.get(drug)
     if mic is None:
         return (
@@ -108,7 +106,8 @@ def interpret_resistance(drug: str, patient: PatientCase, eucast) -> str:
             f"Available drugs: {', '.join(patient.antibiogram.keys()) or 'none'}."
         )
     classification = eucast.classify_mic(patient.organism, drug, mic)
-    labels = {"S": "Susceptible", "I": "Intermediate", "R": "Resistant", "UNKNOWN": "UNKNOWN (no breakpoint)"}
+    labels = {"S": "Susceptible", "I": "Intermediate", "R": "Resistant",
+              "UNKNOWN": "UNKNOWN (no breakpoint)"}
     label = labels.get(classification, classification)
     return (
         f"{drug.capitalize()} MIC = {mic} mg/L -> EUCAST classification: {label} "
@@ -117,31 +116,23 @@ def interpret_resistance(drug: str, patient: PatientCase, eucast) -> str:
 
 
 def check_guideline(syndrome: str, patient: PatientCase, idsa: dict) -> str:
-    """
-    Look up the IDSA guideline recommendation for this syndrome + organism phenotype combo.
-    Returns a plain English result string.
-    """
     syndrome_data = idsa.get(syndrome)
     if syndrome_data is None:
         available = ", ".join(idsa.keys())
-        return f"No IDSA data found for syndrome '{syndrome}'. Available syndromes: {available}."
+        return f"No IDSA data found for syndrome '{syndrome}'. Available: {available}."
 
-    # Build organism key: try exact match, then phenotype-enriched keys.
     organism = patient.organism
     phenotype = patient.phenotype
-
-    # Map patient organism + phenotype to IDSA key variants.
     candidate_keys = [
         organism,
         f"{organism} ({phenotype})",
-        # Common clinical shorthand aliases
         f"{organism} (susceptible)",
         f"{organism} (MSSA)" if organism == "S. aureus" and phenotype == "susceptible" else None,
         f"{organism} (MRSA)" if organism == "S. aureus" and phenotype in ("resistant", "MDR") else None,
         f"{organism} (ESBL)" if phenotype == "resistant" else None,
-        f"{organism} (CRE)" if phenotype in ("resistant", "MDR") else None,
-        f"{organism} (VSE)" if organism == "Enterococcus" and phenotype == "susceptible" else None,
-        f"{organism} (VRE)" if organism == "Enterococcus" and phenotype in ("resistant", "MDR") else None,
+        f"{organism} (CRE)"  if phenotype in ("resistant", "MDR") else None,
+        f"{organism} (VSE)"  if organism == "Enterococcus" and phenotype == "susceptible" else None,
+        f"{organism} (VRE)"  if organism == "Enterococcus" and phenotype in ("resistant", "MDR") else None,
     ]
     candidate_keys = [k for k in candidate_keys if k is not None]
 
@@ -156,14 +147,14 @@ def check_guideline(syndrome: str, patient: PatientCase, idsa: dict) -> str:
     if rec is None:
         available_keys = ", ".join(syndrome_data.keys())
         return (
-            f"No specific IDSA recommendation found for {organism} ({phenotype}) + {syndrome}. "
-            f"Available entries for {syndrome}: {available_keys}."
+            f"No specific IDSA recommendation for {organism} ({phenotype}) + {syndrome}. "
+            f"Available entries: {available_keys}."
         )
 
     alts = ", ".join(rec.get("alternatives", [])) or "none listed"
     return (
         f"IDSA recommendation for {matched_key} + {syndrome}:\n"
-        f"  First-line: {rec['first_line']} — {rec.get('dose', 'dose not specified')} "
+        f"  First-line: {rec['first_line']} - {rec.get('dose', 'dose not specified')} "
         f"for {rec.get('duration', 'duration not specified')}.\n"
         f"  Alternatives: {alts}.\n"
         f"  Notes: {rec.get('notes', 'none')}."
@@ -171,240 +162,217 @@ def check_guideline(syndrome: str, patient: PatientCase, idsa: dict) -> str:
 
 
 def assess_patient_factors(patient: PatientCase, drug_properties: dict) -> str:
-    """
-    Check renal adjustment rules and allergy flags for all antibiogram drugs.
-    Returns a plain English summary of relevant patient factor constraints.
-    """
     crcl = patient.creatinine_clearance
     allergies = patient.allergies
 
-    # Determine renal tier label
     if crcl >= 50:
-        renal_tier = "CrCl_above_50"
-        renal_label = "normal / mild impairment"
+        renal_tier, renal_label = "CrCl_above_50", "normal / mild impairment"
     elif crcl >= 30:
-        renal_tier = "CrCl_30_50"
-        renal_label = "moderate impairment"
+        renal_tier, renal_label = "CrCl_30_50", "moderate impairment"
     elif crcl >= 10:
-        renal_tier = "CrCl_10_30"
-        renal_label = "severe impairment"
+        renal_tier, renal_label = "CrCl_10_30", "severe impairment"
     else:
-        renal_tier = "CrCl_under_10"
-        renal_label = "kidney failure / dialysis-range"
+        renal_tier, renal_label = "CrCl_under_10", "kidney failure / dialysis-range"
 
     lines = [
         f"Renal function: CrCl {crcl} mL/min ({renal_label}).",
         f"Allergies reported: {', '.join(allergies) if allergies else 'none'}.",
         "Renal dosing alerts for drugs in this antibiogram:",
     ]
-
-    drugs_with_data = []
+    rows: list[str] = []
     for drug in patient.antibiogram:
         props = drug_properties.get(drug)
         if props is None:
             continue
-        # Find the right renal-tier dose
         adj = props.get("renal_adjustments", {})
-        # Try to find the appropriate tier — fall back to the closest bracket
         dose_at_tier = (
             adj.get(renal_tier)
             or adj.get("CrCl_above_50")
             or next(iter(adj.values()), "not specified")
         )
-
-        # Allergy conflict check
-        drug_allergy_flags: list[str] = props.get("allergy_flags", [])
-        allergy_conflicts = [
-            flag for flag in drug_allergy_flags
+        flags: list[str] = props.get("allergy_flags", [])
+        conflicts = [
+            flag for flag in flags
             if any(a.lower() in flag.lower() for a in allergies)
         ]
+        line = f"  - {drug}: {dose_at_tier}"
+        if conflicts:
+            line += f"   ALLERGY FLAG: {', '.join(conflicts)}"
+        rows.append(line)
 
-        line = f"  • {drug}: {dose_at_tier}"
-        if allergy_conflicts:
-            line += f" ⚠ ALLERGY FLAG: {', '.join(allergy_conflicts)}"
-        drugs_with_data.append(line)
-
-    if drugs_with_data:
-        lines.extend(drugs_with_data)
-    else:
-        lines.append("  (No dosing data found for antibiogram drugs in drug_properties.json)")
-
-    # Add broad allergy warning
+    lines.extend(rows or ["  (No dosing data found for antibiogram drugs in drug_properties.json)"])
     if allergies:
         lines.append(
             f"\nNote: Patient has documented allergy to {', '.join(allergies)}. "
             "Verify allergy history and cross-reactivity risk before prescribing."
         )
-
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
-# Environment class (Task B3)
+# Environment class — OpenEnv compliant
 # ---------------------------------------------------------------------------
 
-class AMREnvironment:
+class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
     """
     OpenEnv-compatible RL environment for antibiotic prescribing decisions.
 
-    Episode lifecycle:
-      1. reset(curriculum_level) → initial AMRObservation
-      2. step(AMRAction) → (AMRObservation, reward, done)   [repeat]
-      3. state() → full episode state dict (for logging / debugging)
+    Concurrent sessions are supported by the OpenEnv HTTP server: each
+    session gets its own AMREnvironment instance, so per-episode mutable
+    state on `self` is safe.
     """
 
+    SUPPORTS_CONCURRENT_SESSIONS = True
+
     def __init__(self) -> None:
+        super().__init__()
         self.current_patient: PatientCase | None = None
-        self.tool_results: list[str] = []
-        self.budget_remaining: int = 5
-        self.done: bool = False
-        self.curriculum_level: int = 1
-        self.episode_step: int = 0
-        self._last_reward_breakdown: dict[str, float] | None = None
+        self._state: AMRState = AMRState(
+            episode_id=str(uuid.uuid4()),
+            step_count=0,
+            curriculum_level=1,
+            budget_remaining=BUDGET_BY_LEVEL[1],
+            done=False,
+        )
 
     # ------------------------------------------------------------------
     # Public OpenEnv API
     # ------------------------------------------------------------------
 
-    def reset(self, curriculum_level: int = 1) -> AMRObservation:
-        """Start a fresh episode. Sample a new patient from the generator."""
+    def reset(
+        self,
+        seed: Optional[int] = None,
+        episode_id: Optional[str] = None,
+        curriculum_level: int = 1,
+        **kwargs: Any,
+    ) -> AMRObservation:
+        """Start a fresh episode with a new patient."""
         if curriculum_level not in BUDGET_BY_LEVEL:
             raise ValueError(f"curriculum_level must be 1, 2, or 3. Got: {curriculum_level}")
 
-        self.curriculum_level = curriculum_level
-        self.budget_remaining = BUDGET_BY_LEVEL[curriculum_level]
-        self.tool_results = []
-        self.done = False
-        self.episode_step = 0
-        self._last_reward_breakdown = None
+        if seed is not None:
+            random.seed(seed)
 
         self.current_patient = self._sample_patient(curriculum_level)
+
+        self._state = AMRState(
+            episode_id=episode_id or str(uuid.uuid4()),
+            step_count=0,
+            curriculum_level=curriculum_level,
+            budget_remaining=BUDGET_BY_LEVEL[curriculum_level],
+            done=False,
+            patient=self.current_patient.__dict__.copy(),
+            tool_results=[],
+            last_reward_breakdown=None,
+        )
+
         logger.info(
-            "Episode reset | level=%d | patient=%d%s %s | organism=%s | phenotype=%s | budget=%d",
+            "Episode reset | episode_id=%s | level=%d | patient=%d%s %s | "
+            "organism=%s | phenotype=%s | budget=%d",
+            self._state.episode_id,
             curriculum_level,
             self.current_patient.age,
             self.current_patient.sex,
             self.current_patient.infection_site,
             self.current_patient.organism,
             self.current_patient.phenotype,
-            self.budget_remaining,
+            self._state.budget_remaining,
         )
-        return self._build_observation()
+        return self._build_observation(reward=None)
 
-    def step(self, action: AMRAction) -> tuple[AMRObservation, float, bool]:
-        """
-        Apply an action.
-
-        Returns:
-            (observation, reward, done)
-
-        Raises:
-            ValueError: if episode is already done or action is invalid.
-        """
-        if self.done:
+    def step(
+        self,
+        action: AMRAction,
+        timeout_s: Optional[float] = None,
+        **kwargs: Any,
+    ) -> AMRObservation:
+        """Apply an action. Reward is returned via observation.reward."""
+        if self._state.done:
             raise ValueError("Episode is already done. Call reset() first.")
         if self.current_patient is None:
             raise ValueError("No active episode. Call reset() first.")
 
-        self.episode_step += 1
-        reward = 0.0
+        self._state.step_count += 1
 
         if action.action_type == "INVESTIGATE":
             reward, done = self._handle_investigate(action)
-            self.done = done
-
         elif action.action_type == "COMMIT":
             reward, done = self._handle_commit(action)
-            self.done = done
-
         else:
             raise ValueError(
-                f"Unknown action_type '{action.action_type}'. Must be 'INVESTIGATE' or 'COMMIT'."
+                f"Unknown action_type '{action.action_type}'. "
+                "Must be 'INVESTIGATE' or 'COMMIT'."
             )
 
-        obs = self._build_observation()
+        self._state.done = done
+        obs = self._build_observation(reward=reward)
         logger.info(
-            "Step %d | action=%s | reward=%.4f | done=%s | budget=%d",
-            self.episode_step,
+            "Step %d | episode_id=%s | action=%s | reward=%.4f | done=%s | budget=%d",
+            self._state.step_count,
+            self._state.episode_id,
             action.action_type,
             reward,
-            self.done,
-            self.budget_remaining,
+            done,
+            self._state.budget_remaining,
         )
-        return obs, reward, self.done
+        return obs
 
-    def state(self) -> dict[str, Any]:
-        """Return full serialized episode state. Useful for debugging and logging."""
-        return {
-            "patient": self.current_patient.__dict__ if self.current_patient else None,
-            "tool_results": list(self.tool_results),
-            "budget_remaining": self.budget_remaining,
-            "done": self.done,
-            "curriculum_level": self.curriculum_level,
-            "episode_step": self.episode_step,
-            "last_reward_breakdown": self._last_reward_breakdown,
-        }
+    @property
+    def state(self) -> AMRState:
+        """Return current episode state — required by OpenEnv base class."""
+        return self._state
 
     # ------------------------------------------------------------------
     # Action handlers
     # ------------------------------------------------------------------
 
     def _handle_investigate(self, action: AMRAction) -> tuple[float, bool]:
-        """Execute a tool call, append result, decrement budget."""
         result = self._execute_tool(action.tool_name, action.tool_arg)
-        self.tool_results.append(result)
-        self.budget_remaining -= 1
+        self._state.tool_results.append(result)
+        self._state.budget_remaining -= 1
 
         logger.info(
-            "Tool call | tool=%s | arg=%s | result_preview=%s",
-            action.tool_name,
-            action.tool_arg,
+            "Tool call | tool=%s | arg=%s | result=%s",
+            action.tool_name, action.tool_arg,
             result[:120].replace("\n", " "),
         )
 
-        if self.budget_remaining <= 0:
-            logger.warning("Budget exhausted without COMMIT — penalizing episode.")
-            penalty = -0.1
-            return penalty, True
-
+        if self._state.budget_remaining <= 0:
+            logger.warning("Budget exhausted without COMMIT — penalising episode.")
+            return -0.1, True
         return 0.0, False
 
     def _handle_commit(self, action: AMRAction) -> tuple[float, bool]:
-        """Compute reward from the committed prescription."""
         if not action.prescription:
-            logger.warning("COMMIT action missing prescription — returning 0 reward.")
+            logger.warning("COMMIT missing prescription — returning 0 reward.")
             return 0.0, True
 
         try:
-            from env.reward import compute_total_reward  # Saaheer's file
+            from env.reward import compute_total_reward
             total, breakdown = compute_total_reward(
                 prescription=action.prescription,
                 patient=self.current_patient,
-                tool_call_history=self.tool_results,
+                tool_call_history=list(self._state.tool_results),
                 eucast=_get_eucast(),
                 idsa=_get_idsa(),
                 drug_properties=_get_drug_properties(),
             )
-            self._last_reward_breakdown = breakdown
+            self._state.last_reward_breakdown = breakdown
             logger.info(
-                "COMMIT | drug=%s | total_reward=%.4f | breakdown=%s",
-                action.prescription.get("drug", "?"),
-                total,
-                breakdown,
+                "COMMIT | drug=%s | total=%.4f | breakdown=%s",
+                action.prescription.get("drug", "?"), total, breakdown,
             )
             return total, True
         except Exception as exc:
-            # Graceful fallback so training never hard-crashes on reward errors.
-            logger.error("Reward computation error: %s — returning 0.0 reward.", exc)
-            self._last_reward_breakdown = {"error": str(exc)}
+            logger.error("Reward computation error: %s", exc)
+            self._state.last_reward_breakdown = {"error": str(exc)}
             return 0.0, True
 
     # ------------------------------------------------------------------
-    # Tool dispatch (Task B4)
+    # Tool dispatch
     # ------------------------------------------------------------------
 
     def _execute_tool(self, tool_name: str | None, tool_arg: str | None) -> str:
-        """Route a tool call to the appropriate tool function."""
         if not tool_name:
             return "Error: tool_name is required for INVESTIGATE actions."
 
@@ -418,29 +386,28 @@ class AMREnvironment:
                 return "Error: tool_arg (drug name) is required for interpret_resistance."
             return interpret_resistance(drug=tool_arg, patient=patient, eucast=eucast)
 
-        elif tool_name == "check_guideline":
+        if tool_name == "check_guideline":
             syndrome = tool_arg or patient.infection_site
             return check_guideline(syndrome=syndrome, patient=patient, idsa=idsa)
 
-        elif tool_name == "assess_patient_factors":
+        if tool_name == "assess_patient_factors":
             return assess_patient_factors(patient=patient, drug_properties=drug_properties)
 
-        else:
-            available = "interpret_resistance | check_guideline | assess_patient_factors"
-            return f"Unknown tool '{tool_name}'. Available tools: {available}."
+        return (
+            f"Unknown tool '{tool_name}'. Available: "
+            "interpret_resistance | check_guideline | assess_patient_factors."
+        )
 
     # ------------------------------------------------------------------
     # Observation builder
     # ------------------------------------------------------------------
 
-    def _build_observation(self) -> AMRObservation:
-        """Construct the AMRObservation the agent sees after each action."""
+    def _build_observation(self, reward: float | None) -> AMRObservation:
         p = self.current_patient
         from data.patient_generator import patient_to_text  # type: ignore[import]
         try:
             patient_text = patient_to_text(p)
         except Exception:
-            # Fallback text if patient_to_text is unavailable
             allergy_str = ", ".join(p.allergies) if p.allergies else "None reported"
             patient_text = (
                 f"Patient: {p.age}-year-old {p.sex}.\n"
@@ -451,32 +418,38 @@ class AMREnvironment:
                 f"Available antibiogram data: {list(p.antibiogram.keys())}.\n"
             )
 
-        # JEPA world model: predict which tools are most informative next
         world_model_rankings = ""
-        if not self.done and p.antibiogram:
+        if not self._state.done and p.antibiogram:
             try:
                 wm = _get_world_model()
-                patient_features = p.__dict__
-                # Only suggest tools relevant to drugs in this patient's antibiogram
                 abx_keys = {k.lower() for k in p.antibiogram}
                 relevant = [
                     t for t in AVAILABLE_TOOLS
                     if not t.startswith("interpret_resistance_")
                     or t[len("interpret_resistance_"):] in abx_keys
                 ]
-                enriched = enrich_observation(
-                    "", wm, list(self.tool_results), patient_features, relevant
-                )
-                world_model_rankings = enriched.strip()
+                world_model_rankings = enrich_observation(
+                    "", wm, list(self._state.tool_results), p.__dict__, relevant
+                ).strip()
             except Exception as exc:
                 logger.debug("World model enrichment skipped: %s", exc)
 
+        metadata: dict[str, Any] = {
+            "episode_id": self._state.episode_id,
+            "step_count": self._state.step_count,
+            "curriculum_level": self._state.curriculum_level,
+        }
+        if self._state.done and self._state.last_reward_breakdown is not None:
+            metadata["reward_breakdown"] = self._state.last_reward_breakdown
+
         return AMRObservation(
+            done=self._state.done,
+            reward=reward,
+            metadata=metadata,
             patient_text=patient_text,
-            tool_results=list(self.tool_results),
-            budget_remaining=self.budget_remaining,
+            tool_results=list(self._state.tool_results),
+            budget_remaining=self._state.budget_remaining,
             world_model_rankings=world_model_rankings,
-            done=self.done,
         )
 
     # ------------------------------------------------------------------
@@ -485,7 +458,6 @@ class AMREnvironment:
 
     @staticmethod
     def _sample_patient(curriculum_level: int) -> PatientCase:
-        """Sample a patient from the generator. Falls back to a hardcoded demo case."""
         try:
             import sys
             repo_root = str(Path(__file__).parent.parent)
@@ -497,7 +469,6 @@ class AMREnvironment:
             logger.warning(
                 "patient_generator unavailable (%s) — using demo patient (67F CRE bacteremia).", exc
             )
-            # Canonical demo patient from PROJECT_MASTER.md §10
             return PatientCase(
                 age=67, sex="F",
                 infection_site="bacteremia",

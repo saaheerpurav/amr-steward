@@ -2,10 +2,11 @@
 # Pinned to compatible ranges for reproducibility.
 # For HuggingFace Spaces: pip install -r requirements.txt
 
-# ── OpenEnv ───────────────────────────────────────────────────────────────────
-openenv
+# ── OpenEnv (Meta-PyTorch, real framework — NOT the unrelated PyPI 'openenv') ──
+# Reference: https://github.com/meta-pytorch/OpenEnv
+openenv-core>=0.2.3
 
-# ── Web framework ─────────────────────────────────────────────────────────────
+# ── Web framework (transitive via openenv-core, pinned for safety) ────────────
 fastapi>=0.111.0,<1.0.0
 uvicorn[standard]>=0.29.0,<1.0.0
 pydantic>=2.7.0,<3.0.0
