@@ -12,6 +12,8 @@ pinned: false
 
 **RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. No LLM judges.
 
+**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth · HuggingFace Spaces
+
 ---
 
 ## The Problem
@@ -214,7 +216,7 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 |----------|-----|
 | Live Environment (HF Space) | https://divyanshb06-amrsteward.hf.space |
 | Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
-| Training Notebook (Colab) | [AMR_Steward.ipynb](AMR_Steward.ipynb) |
+| Training Notebook (Colab) | https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb |
 
 ---
 
