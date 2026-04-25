@@ -1,10 +1,9 @@
 """
 app.py — AMR-Steward FastAPI server.
-Owns: Bhatia
 
-Built on top of openenv-core's `create_app` so we get the standard OpenEnv
-HTTP + WebSocket protocol for free (POST /reset, POST /step, GET /state,
-GET /health, /docs, optional /web). Compatible with any OpenEnv HTTPEnvClient.
+Uses a module-level AMREnvironment singleton for /reset and /step.
+openenv-core's create_app creates a fresh instance per request (breaking
+session state), so we own the reset/step/state/health routes directly.
 
 Run locally:
   uvicorn app:app --reload --port 7860
@@ -16,13 +15,14 @@ HuggingFace Spaces:
 from __future__ import annotations
 
 import logging
-import os
 import textwrap
+from typing import Any, Dict, Optional
 
-from fastapi.responses import HTMLResponse
-from openenv.core.env_server import create_app
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 
-from env import AMRAction, AMREnvironment, AMRObservation
+from env import AMRAction, AMREnvironment
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -33,6 +33,11 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("amr_steward.app")
+
+# ---------------------------------------------------------------------------
+# Module-level singleton — persists across requests on the same worker
+# ---------------------------------------------------------------------------
+_ENV = AMREnvironment()
 
 # Warm up data loaders at import time so the first request isn't cold.
 try:
@@ -45,29 +50,86 @@ except Exception as exc:
     logger.warning("Data pre-load warning: %s", exc)
 
 # ---------------------------------------------------------------------------
-# Build the OpenEnv-compliant app
+# App
 # ---------------------------------------------------------------------------
-# Passing the *class* (not an instance) lets the OpenEnv HTTP server
-# spin up an isolated AMREnvironment per concurrent session, keyed by
-# episode_id. This fixes the "global env shared across requests" bug.
-
-MAX_CONCURRENT_ENVS = int(os.getenv("MAX_CONCURRENT_ENVS", "1"))
-
-app = create_app(
-    AMREnvironment,
-    AMRAction,
-    AMRObservation,
-    env_name="amr-steward",
-    max_concurrent_envs=MAX_CONCURRENT_ENVS,
+app = FastAPI(
+    title="AMR-Steward",
+    description="OpenEnv RL environment for antimicrobial stewardship.",
+    version="1.0.0",
 )
 
 # ---------------------------------------------------------------------------
-# Add our HuggingFace Spaces landing page on top of the OpenEnv app.
+# Request / response models
+# ---------------------------------------------------------------------------
+
+class ResetRequest(BaseModel):
+    curriculum_level: int = 1
+    seed: Optional[int] = None
+    episode_id: Optional[str] = None
+
+
+class StepRequest(BaseModel):
+    action: Dict[str, Any]
+    timeout_s: Optional[float] = None
+
+
+# ---------------------------------------------------------------------------
+# Core OpenEnv endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/reset", tags=["Environment Control"])
+def reset(body: ResetRequest = ResetRequest()) -> JSONResponse:
+    """Start a new episode. Returns the initial observation."""
+    try:
+        obs = _ENV.reset(
+            seed=body.seed,
+            episode_id=body.episode_id,
+            curriculum_level=body.curriculum_level,
+        )
+        return JSONResponse({
+            "observation": obs.model_dump(),
+            "reward": None,
+            "done": False,
+        })
+    except Exception as exc:
+        logger.exception("reset() failed")
+        return JSONResponse({"detail": str(exc)}, status_code=500)
+
+
+@app.post("/step", tags=["Environment Control"])
+def step(body: StepRequest) -> JSONResponse:
+    """Execute an action and return the resulting observation + reward."""
+    try:
+        action = AMRAction(**body.action)
+        obs = _ENV.step(action)
+        return JSONResponse({
+            "observation": obs.model_dump(),
+            "reward": obs.reward,
+            "done": obs.done,
+        })
+    except Exception as exc:
+        logger.exception("step() failed")
+        return JSONResponse({"detail": str(exc)}, status_code=500)
+
+
+@app.get("/state", tags=["Environment Control"])
+def state() -> JSONResponse:
+    """Return current episode state."""
+    return JSONResponse(_ENV.state.model_dump())
+
+
+@app.get("/health", tags=["Environment Control"])
+def health() -> JSONResponse:
+    """Liveness check."""
+    return JSONResponse({"status": "healthy"})
+
+
+# ---------------------------------------------------------------------------
+# Landing page
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root() -> HTMLResponse:
-    """HTML status page shown on the HuggingFace Space root URL."""
     html = textwrap.dedent("""
     <!DOCTYPE html>
     <html lang="en">
@@ -116,41 +178,30 @@ Allergies: None reported.</pre>
         <thead><tr><th>Model</th><th>Prescription</th><th>Reward</th></tr></thead>
         <tbody>
           <tr>
-            <td>Untrained Llama-3.1-8B</td>
-            <td><span class="badge-bad">Meropenem 1g IV q8h</span> - wrong, resistant organism</td>
+            <td>Untrained</td>
+            <td><span class="badge-bad">Meropenem 1g IV q8h</span> — resistant organism</td>
             <td>0.12</td>
           </tr>
           <tr>
-            <td>GRPO-trained model</td>
-            <td><span class="badge-good">Ceftazidime/avibactam 2.5g IV q12h (renal-adjusted, CRE-active)</span></td>
+            <td>GRPO-trained</td>
+            <td><span class="badge-good">Ceftazidime/avibactam 2.5g IV q12h (renal-adjusted)</span></td>
             <td>0.91</td>
           </tr>
         </tbody>
       </table>
 
-      <h2>Reward Components</h2>
-      <table>
-        <thead><tr><th>Component</th><th>Weight</th><th>Verifier</th></tr></thead>
-        <tbody>
-          <tr><td>R1 Microbiological activity</td><td>40%</td><td>EUCAST MIC lookup</td></tr>
-          <tr><td>R2 Guideline concordance</td><td>25%</td><td>IDSA table lookup</td></tr>
-          <tr><td>R3 Stewardship (narrowest drug)</td><td>15%</td><td>Conditional on R1</td></tr>
-          <tr><td>R4 Dose / renal correctness</td><td>10%</td><td>Drug properties table</td></tr>
-          <tr><td>R5 Reasoning grounding</td><td>10%</td><td>Tool call history check</td></tr>
-        </tbody>
-      </table>
-
       <h2>OpenEnv API</h2>
-      <pre>POST /reset    body: {"seed": 42, "episode_id": "...", "curriculum_level": 1}
-POST /step     body: {"action": {"action_type": "INVESTIGATE", "tool_name": "...", "tool_arg": "..."}}
-GET  /state    -> {episode_id, step_count, curriculum_level, budget_remaining, ...}
-GET  /health   -> 200 OK liveness check
-GET  /docs     -> interactive Swagger UI
-WS   /ws       -> WebSocket transport (used by HTTPEnvClient)</pre>
+      <pre>POST /reset    body: {"curriculum_level": 1}
+POST /step     body: {"action": {"action_type": "INVESTIGATE", "tool_name": "interpret_resistance", "tool_arg": "meropenem"}}
+POST /step     body: {"action": {"action_type": "COMMIT", "prescription": {"drug": "...", "dose": "...", "duration": "...", "justification": "..."}}}
+GET  /state    -> {episode_id, step_count, budget_remaining, ...}
+GET  /health   -> {"status": "healthy"}
+GET  /docs     -> interactive Swagger UI</pre>
 
       <p>
-        <a href="/docs">Interactive API Docs (Swagger)</a> &middot;
-        <a href="/health">Health Check</a>
+        <a href="/docs">Interactive API Docs</a> &middot;
+        <a href="/health">Health Check</a> &middot;
+        <a href="https://github.com/saaheerpurav/amr-steward">GitHub</a>
       </p>
     </body>
     </html>
