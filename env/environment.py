@@ -99,7 +99,7 @@ def interpret_resistance(drug: str, patient: PatientCase, eucast) -> str:
     labels = {"S": "Susceptible", "I": "Intermediate", "R": "Resistant", "UNKNOWN": "UNKNOWN (no breakpoint)"}
     label = labels.get(classification, classification)
     return (
-        f"{drug.capitalize()} MIC = {mic} mg/L → EUCAST classification: {label} "
+        f"{drug.capitalize()} MIC = {mic} mg/L -> EUCAST classification: {label} "
         f"(organism: {patient.organism})."
     )
 
