@@ -308,6 +308,48 @@
     "notes": "Common intra-abdominal regimen when Pseudomonas and ESBL risk are low."
   },
 
+  "cefiderocol": {
+    "class": "siderophore_cephalosporin",
+    "standard_dose": "2g IV q8h (3-hour infusion)",
+    "renal_adjustments": {
+      "CrCl_above_60": "2g IV q8h",
+      "CrCl_30_60": "1.5g IV q8h",
+      "CrCl_15_30": "1g IV q8h",
+      "CrCl_under_15": "0.75g IV q8h"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["MDR_gram_negative", "CRE", "MBL_producers", "XDR_P_aeruginosa", "Acinetobacter"],
+    "notes": "Last-resort siderophore cephalosporin. Active against most MBL-producing CRE and XDR Pseudomonas. Requires 3-hour extended infusion. Use only when other active agents are unavailable."
+  },
+
+  "ceftolozane-tazobactam": {
+    "class": "cephalosporin_beta_lactamase_inhibitor",
+    "standard_dose": "3g IV q8h (1-hour infusion)",
+    "renal_adjustments": {
+      "CrCl_above_50": "3g IV q8h",
+      "CrCl_30_50": "1.5g IV q8h",
+      "CrCl_15_30": "750mg IV q8h",
+      "CrCl_under_15": "375mg IV q8h (loading dose 750mg)"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["MDR_P_aeruginosa", "some_gram_negative"],
+    "notes": "Superior lung penetration versus ceftazidime-avibactam — preferred for MDR Pseudomonas HAP/VAP. Does NOT cover CRE, Klebsiella, Enterobacterales with KPC. No MRSA coverage."
+  },
+
+  "meropenem-vaborbactam": {
+    "class": "carbapenem_beta_lactamase_inhibitor",
+    "standard_dose": "4g IV q8h (3-hour infusion)",
+    "renal_adjustments": {
+      "CrCl_above_50": "4g IV q8h",
+      "CrCl_30_50": "2g IV q8h",
+      "CrCl_15_30": "2g IV q12h",
+      "CrCl_under_15": "1g IV q12h"
+    },
+    "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["CRE_KPC", "gram_negative_ESBL"],
+    "notes": "Active against KPC-producing CRE. Does NOT cover MBL-producing organisms (NDM, VIM, IMP). Does NOT cover MDR Pseudomonas reliably."
+  },
+
   "ampicillin + ceftriaxone + metronidazole": {
     "class": "combination",
     "standard_dose": "ampicillin 2g IV q4h + ceftriaxone 2g IV q24h + metronidazole 500mg IV/PO q8h",
