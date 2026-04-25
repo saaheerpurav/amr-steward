@@ -1,0 +1,98 @@
+{
+  "_comment": "PALAK OWNS THIS FILE. Fill in all entries. Source: drug prescribing references.",
+
+  "meropenem": {
+    "class": "carbapenem",
+    "standard_dose": "1g IV q8h",
+    "renal_adjustments": {
+      "CrCl_above_50": "1g IV q8h",
+      "CrCl_30_50": "1g IV q12h",
+      "CrCl_10_30": "500mg IV q12h",
+      "CrCl_under_10": "500mg IV q24h"
+    },
+    "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative", "gram_positive", "anaerobes"],
+    "notes": "Broad spectrum carbapenem. Does NOT cover MRSA or VRE."
+  },
+
+  "ceftazidime-avibactam": {
+    "class": "cephalosporin_beta_lactamase_inhibitor",
+    "standard_dose": "2.5g IV q8h",
+    "renal_adjustments": {
+      "CrCl_above_50": "2.5g IV q8h",
+      "CrCl_30_50": "1.25g IV q8h",
+      "CrCl_10_30": "0.94g IV q12h",
+      "CrCl_under_10": "0.94g IV q24h"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative_CRE", "P_aeruginosa"],
+    "notes": "Drug of choice for CRE (non-MBL). Does NOT cover MBL-producing organisms."
+  },
+
+  "vancomycin": {
+    "class": "glycopeptide",
+    "standard_dose": "25-30 mg/kg/day IV divided q8-12h",
+    "renal_adjustments": {
+      "CrCl_above_50": "15-20mg/kg IV q8-12h",
+      "CrCl_30_50": "15-20mg/kg IV q12-24h",
+      "CrCl_10_30": "15-20mg/kg IV q24-48h",
+      "CrCl_under_10": "15-20mg/kg IV q48-72h"
+    },
+    "allergy_flags": [],
+    "spectrum": ["gram_positive", "MRSA", "VRE_VSE"],
+    "notes": "Target AUC/MIC 400-600. Requires TDM. Nephrotoxic."
+  },
+
+  "ceftriaxone": {
+    "class": "cephalosporin_3rd_gen",
+    "standard_dose": "2g IV q24h",
+    "renal_adjustments": {
+      "CrCl_above_10": "2g IV q24h",
+      "CrCl_under_10": "2g IV q24h (no adjustment needed)"
+    },
+    "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative_susceptible", "gram_positive_non_MRSA"],
+    "notes": "No renal adjustment needed. Does NOT cover ESBL, CRE, MRSA, Pseudomonas."
+  },
+
+  "piperacillin-tazobactam": {
+    "class": "penicillin_beta_lactamase_inhibitor",
+    "standard_dose": "4.5g IV q6h",
+    "renal_adjustments": {
+      "CrCl_above_40": "4.5g IV q6h",
+      "CrCl_20_40": "3.375g IV q6h",
+      "CrCl_under_20": "2.25g IV q6h"
+    },
+    "allergy_flags": ["penicillin"],
+    "spectrum": ["gram_negative", "gram_positive_non_MRSA", "anaerobes", "P_aeruginosa"],
+    "notes": "Broad spectrum. Does NOT cover ESBL reliably, CRE, MRSA."
+  },
+
+  "daptomycin": {
+    "class": "lipopeptide",
+    "standard_dose": "6mg/kg IV q24h (bacteremia), 8-10mg/kg for endocarditis",
+    "renal_adjustments": {
+      "CrCl_above_30": "6mg/kg IV q24h",
+      "CrCl_under_30": "6mg/kg IV q48h"
+    },
+    "allergy_flags": [],
+    "spectrum": ["gram_positive", "MRSA", "VRE"],
+    "notes": "Do NOT use for pneumonia — inactivated by surfactant. Monitor CPK weekly."
+  },
+
+  "ertapenem": {
+    "class": "carbapenem",
+    "standard_dose": "1g IV q24h",
+    "renal_adjustments": {
+      "CrCl_above_30": "1g IV q24h",
+      "CrCl_under_30": "500mg IV q24h"
+    },
+    "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
+    "spectrum": ["gram_negative_ESBL", "gram_positive_non_MRSA", "anaerobes"],
+    "notes": "Does NOT cover P. aeruginosa or Acinetobacter. Good for ESBL step-down."
+  },
+
+  "TODO_more_drugs": {
+    "_comment": "Palak: add colistin, tigecycline, trimethoprim-sulfamethoxazole, nitrofurantoin, fosfomycin, linezolid, azithromycin, ampicillin"
+  }
+}

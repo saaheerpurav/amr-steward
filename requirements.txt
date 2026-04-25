@@ -1,0 +1,9 @@
+openenv
+fastapi
+uvicorn[standard]
+pydantic
+torch
+numpy
+pandas
+trl
+unsloth

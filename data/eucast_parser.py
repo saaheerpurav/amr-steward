@@ -1,0 +1,71 @@
+# SAAHEER OWNS THIS FILE
+# Parses EUCAST clinical breakpoints CSV and classifies MIC values.
+# Download CSV from: https://www.eucast.org/clinical_breakpoints/
+# TODO Saaheer: download eucast.csv and implement classify_mic()
+
+import csv
+import os
+
+_breakpoints: dict = {}  # loaded once at import
+
+
+def _load_breakpoints(csv_path: str = "data/eucast.csv"):
+    """Load EUCAST breakpoints into memory. Call once at startup."""
+    global _breakpoints
+    if not os.path.exists(csv_path):
+        print(f"WARNING: {csv_path} not found. Using stub breakpoints.")
+        _breakpoints = _stub_breakpoints()
+        return
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            key = (row["organism"].strip().lower(), row["drug"].strip().lower())
+            _breakpoints[key] = {
+                "S_breakpoint": float(row["S"]) if row.get("S") else None,
+                "R_breakpoint": float(row["R"]) if row.get("R") else None,
+            }
+
+
+def _stub_breakpoints() -> dict:
+    """Hardcoded breakpoints for the 5 most critical cases — unblocks development."""
+    return {
+        ("k. pneumoniae", "meropenem"):              {"S_breakpoint": 2.0, "R_breakpoint": 8.0},
+        ("k. pneumoniae", "ceftazidime-avibactam"):  {"S_breakpoint": 8.0, "R_breakpoint": 8.0},
+        ("k. pneumoniae", "colistin"):               {"S_breakpoint": 2.0, "R_breakpoint": 2.0},
+        ("e. coli", "ceftriaxone"):                  {"S_breakpoint": 1.0, "R_breakpoint": 2.0},
+        ("e. coli", "meropenem"):                    {"S_breakpoint": 2.0, "R_breakpoint": 8.0},
+        ("p. aeruginosa", "piperacillin-tazobactam"):{"S_breakpoint": 16.0, "R_breakpoint": 16.0},
+        ("s. aureus", "vancomycin"):                 {"S_breakpoint": 2.0, "R_breakpoint": 2.0},
+        ("enterococcus", "vancomycin"):              {"S_breakpoint": 4.0, "R_breakpoint": 4.0},
+    }
+
+
+def classify_mic(organism: str, drug: str, mic_value: float) -> str:
+    """Classify a MIC value as Susceptible (S), Intermediate (I), or Resistant (R).
+    Returns 'S', 'I', or 'R'. Returns 'UNKNOWN' if no breakpoint found."""
+    if not _breakpoints:
+        _load_breakpoints()
+
+    key = (organism.lower().strip(), drug.lower().strip())
+    bp = _breakpoints.get(key)
+
+    if bp is None:
+        return "UNKNOWN"
+
+    s_bp = bp["S_breakpoint"]
+    r_bp = bp["R_breakpoint"]
+
+    if s_bp is not None and mic_value <= s_bp:
+        return "S"
+    elif r_bp is not None and mic_value >= r_bp:
+        return "R"
+    else:
+        return "I"
+
+
+def is_susceptible(organism: str, drug: str, mic_value: float) -> bool:
+    return classify_mic(organism, drug, mic_value) == "S"
+
+
+# Load on import
+_load_breakpoints()

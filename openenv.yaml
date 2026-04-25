@@ -1,0 +1,21 @@
+name: amr-steward
+description: "RL environment for clinical antimicrobial stewardship — trains an LLM to prescribe the correct antibiotic for drug-resistant infections, verified against EUCAST breakpoints and IDSA guidelines."
+version: "1.0.0"
+author: "saaheerpurav"
+
+action_space:
+  type: structured
+  schema: AMRAction
+
+observation_space:
+  type: text
+
+reward_range: [0.0, 1.0]
+
+curriculum_levels: [1, 2, 3]
+
+tags:
+  - antimicrobial-resistance
+  - clinical-decision-making
+  - world-modeling
+  - JEPA

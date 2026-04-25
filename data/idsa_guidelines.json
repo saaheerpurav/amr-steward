@@ -1,0 +1,149 @@
+{
+  "_comment": "PALAK OWNS THIS FILE. Fill in all entries. Source: IDSA clinical practice guidelines.",
+  "_structure": "syndrome → organism → {first_line, dose, duration, notes, alternatives}",
+
+  "bacteremia": {
+    "K. pneumoniae (susceptible)": {
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "14 days",
+      "notes": "Standard gram-negative bacteremia. Switch to oral if improving at day 5.",
+      "alternatives": ["ertapenem", "piperacillin-tazobactam"]
+    },
+    "K. pneumoniae (ESBL)": {
+      "first_line": "ertapenem",
+      "dose": "1g IV q24h",
+      "duration": "14 days",
+      "notes": "ESBL-producing organism. Carbapenems are drug of choice.",
+      "alternatives": ["meropenem"]
+    },
+    "K. pneumoniae (CRE)": {
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "14 days",
+      "notes": "Carbapenem-resistant Enterobacterales. Confirm no MBL before using.",
+      "alternatives": ["meropenem-vaborbactam", "ceftolozane-tazobactam"]
+    },
+    "E. coli (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "E. coli (ESBL)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "P. aeruginosa (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "S. aureus (MSSA)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "S. aureus (MRSA)": {
+      "first_line": "vancomycin",
+      "dose": "25-30 mg/kg/day IV divided q8-12h (target AUC/MIC 400-600)",
+      "duration": "14-42 days depending on source control",
+      "notes": "MRSA bacteremia. Add rifampin only if prosthetic material involved.",
+      "alternatives": ["daptomycin"]
+    },
+    "Enterococcus (VSE)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "Enterococcus (VRE)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    }
+  },
+
+  "UTI": {
+    "E. coli (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "K. pneumoniae (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "K. pneumoniae (CRE)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    }
+  },
+
+  "pneumonia": {
+    "S. aureus (MRSA)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "P. aeruginosa (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "K. pneumoniae (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    }
+  },
+
+  "intra-abdominal": {
+    "E. coli (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "K. pneumoniae (susceptible)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    },
+    "Enterococcus (VSE)": {
+      "first_line": "TODO - Palak to fill",
+      "dose": "TODO",
+      "duration": "TODO",
+      "notes": "TODO",
+      "alternatives": []
+    }
+  }
+}
