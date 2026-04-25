@@ -10,7 +10,7 @@ action_space:
 observation_space:
   type: text
 
-reward_range: [0.0, 1.0]
+reward_range: [-0.1, 1.0]
 
 curriculum_levels: [1, 2, 3]
 

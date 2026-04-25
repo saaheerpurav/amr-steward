@@ -276,6 +276,16 @@ def R5_reasoning_grounding(tool_call_history: list[str], prescription: dict | No
     return min(score, 1.0)
 
 
+def R5_tool_efficiency(unique_tool_types: int, budget_spent: int, budget_remaining: int, budget_total: int) -> float:
+    """R5 (structured): tool diversity × budget economy.
+    0.0 if no investigation; higher when diverse tools were used with budget to spare."""
+    if budget_spent == 0:
+        return 0.0
+    diversity = unique_tool_types / max(1, budget_spent)
+    economy = budget_remaining / max(1, budget_total)
+    return round(diversity * economy, 4)
+
+
 def R0_allergy_safety(prescription: dict, patient: PatientCase, drug_properties: dict | None = None) -> float:
     """R0: Hard safety gate — prescribing a drug the patient is allergic to is an
     immediate zero regardless of all other reward components.
@@ -293,6 +303,48 @@ def R0_allergy_safety(prescription: dict, patient: PatientCase, drug_properties:
     return 1.0
 
 
+def compute_optimal_prescription(
+    patient: PatientCase,
+    eucast,
+    idsa: dict | None = None,
+    drug_properties: dict | None = None,
+) -> float:
+    """Return the maximum achievable process score (R1·0.4 + R2·0.25 + R3·0.15 + R4·0.1)
+    for this patient — the RLVR oracle against which quality_ratio is computed."""
+    if idsa is None:
+        idsa = _get_idsa()
+    if drug_properties is None:
+        drug_properties = _get_drug_props()
+
+    best = 0.01  # never zero — avoids division by zero
+    for drug in patient.antibiogram:
+        drug_norm = _normalize_drug(drug)
+        # Use best renal-tier dose for this drug
+        props = drug_properties.get(drug_norm, {})
+        crcl = patient.creatinine_clearance
+        dose = ""
+        if props and "renal_adjustments" in props:
+            adj = props["renal_adjustments"]
+            if crcl > 50:
+                dose = adj.get("CrCl_above_50", "")
+            elif crcl >= 30:
+                dose = adj.get("CrCl_30_50", "")
+            elif crcl >= 10:
+                dose = adj.get("CrCl_10_30", "")
+            else:
+                dose = adj.get("CrCl_under_10", "")
+
+        prx = {"drug": drug_norm, "dose": dose, "duration": "", "justification": ""}
+        r1 = R1_microbiological_activity(prx, patient, eucast)
+        r2 = R2_guideline_concordance(prx, patient, idsa)
+        r3 = R3_stewardship(prx, patient, eucast, r1)
+        r4 = R4_dose_correctness(prx, patient, drug_properties)
+        score = 0.40 * r1 + 0.25 * r2 + 0.15 * r3 + 0.10 * r4
+        if score > best:
+            best = score
+    return best
+
+
 def compute_total_reward(
     prescription: dict,
     patient: PatientCase,
@@ -301,11 +353,12 @@ def compute_total_reward(
     idsa: dict | None = None,
     drug_properties: dict | None = None,
 ) -> tuple[float, dict]:
-    """Compute weighted total reward. Returns (total, breakdown dict).
-    Weights: R1=40%, R2=25%, R3=15%, R4=10%, R5=10%
+    """Compute total reward via quality_ratio against optimal prescription.
 
-    R0 is a hard safety gate: allergy conflict → total=0.0 regardless of all
-    other components. This prevents false-positive rewards for dangerous prescriptions.
+    quality_ratio = agent_process_score / opt_score  (RLVR-verifiable)
+    total = 0.9 * quality_ratio + 0.1 * R5
+
+    R0 is a hard safety gate: allergy conflict → 0.0 immediately.
     """
     r0 = R0_allergy_safety(prescription, patient, drug_properties)
     if r0 == 0.0:
@@ -316,6 +369,7 @@ def compute_total_reward(
             "R3_stewardship": 0.0,
             "R4_dose": 0.0,
             "R5_reasoning": 0.0,
+            "quality_ratio": 0.0,
             "total": 0.0,
         }
         return 0.0, breakdown
@@ -326,7 +380,10 @@ def compute_total_reward(
     r4 = R4_dose_correctness(prescription, patient, drug_properties)
     r5 = R5_reasoning_grounding(tool_call_history, prescription)
 
-    total = round(0.40*r1 + 0.25*r2 + 0.15*r3 + 0.10*r4 + 0.10*r5, 4)
+    opt_score = compute_optimal_prescription(patient, eucast, idsa, drug_properties)
+    process_score = 0.40 * r1 + 0.25 * r2 + 0.15 * r3 + 0.10 * r4
+    quality_ratio = min(1.0, process_score / opt_score)
+    total = round(0.90 * quality_ratio + 0.10 * r5, 4)
 
     breakdown = {
         "R0_allergy": 1.0,
@@ -335,6 +392,7 @@ def compute_total_reward(
         "R3_stewardship": r3,
         "R4_dose": r4,
         "R5_reasoning": r5,
+        "quality_ratio": quality_ratio,
         "total": total,
     }
     return total, breakdown

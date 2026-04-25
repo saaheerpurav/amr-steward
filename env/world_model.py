@@ -91,13 +91,13 @@ class AMRWorldModel(nn.Module):
 
     def predict_information_gain(self, known_state: torch.Tensor, tool_name: str) -> float:
         """Returns estimated information gain (0–1) for running a specific tool.
-        Measures how much the predicted post-tool repr diverges from the current repr."""
+        Uses L2 norm of predicted state delta, normalized by sqrt(repr_dim)."""
         tool_idx = torch.tensor(TOOL_TO_IDX.get(tool_name, 0))
         with torch.no_grad():
             ctx_repr = self.context_encoder(known_state.unsqueeze(0))
             tool_onehot = F.one_hot(tool_idx.unsqueeze(0), num_classes=NUM_TOOLS).float()
             pred_next = self.predictor(torch.cat([ctx_repr, tool_onehot], dim=-1))
-            gain = 1.0 - F.cosine_similarity(pred_next, ctx_repr, dim=-1).item()
+            gain = torch.norm(pred_next - ctx_repr, dim=-1).item() / (REPR_DIM ** 0.5)
         return float(max(0.0, min(1.0, gain)))
 
     def save_weights(self, path: Path = WEIGHTS_PATH) -> None:

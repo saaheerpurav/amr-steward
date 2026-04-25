@@ -128,16 +128,17 @@ def check_guideline(syndrome: str, patient: PatientCase, idsa: dict) -> str:
 
     organism = patient.organism
     phenotype = patient.phenotype
+    # Specific keys first — matches _organism_to_idsa_key resolution in reward.py
     candidate_keys = [
-        organism,
-        f"{organism} ({phenotype})",
-        f"{organism} (susceptible)",
         f"{organism} (MSSA)" if organism == "S. aureus" and phenotype == "susceptible" else None,
         f"{organism} (MRSA)" if organism == "S. aureus" and phenotype in ("resistant", "MDR") else None,
         f"{organism} (ESBL)" if phenotype == "resistant" else None,
         f"{organism} (CRE)"  if phenotype in ("resistant", "MDR") else None,
         f"{organism} (VSE)"  if organism == "Enterococcus" and phenotype == "susceptible" else None,
         f"{organism} (VRE)"  if organism == "Enterococcus" and phenotype in ("resistant", "MDR") else None,
+        f"{organism} (susceptible)" if phenotype == "susceptible" else None,
+        f"{organism} ({phenotype})",
+        organism,
     ]
     candidate_keys = [k for k in candidate_keys if k is not None]
 
@@ -229,9 +230,14 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
 
     SUPPORTS_CONCURRENT_SESSIONS = False
 
+    _DENSE_NOVEL_TOOL = 0.04
+    _DENSE_CAP = 0.20
+
     def __init__(self) -> None:
         super().__init__()
         self.current_patient: PatientCase | None = None
+        self._dense_accum: float = 0.0
+        self._called_tools: set[str] = set()
         self._state: AMRState = AMRState(
             episode_id=str(uuid.uuid4()),
             step_count=0,
@@ -260,6 +266,8 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
 
         self.current_patient = self._sample_patient(curriculum_level)
 
+        self._dense_accum = 0.0
+        self._called_tools = set()
         self._state = AMRState(
             episode_id=episode_id or str(uuid.uuid4()),
             step_count=0,
@@ -336,16 +344,26 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         self._state.tool_results.append(result)
         self._state.budget_remaining -= 1
 
+        # Dense shaping: reward novel tool types, capped to keep terminal dominant
+        tool_key = f"{action.tool_name}:{action.tool_arg or ''}"
+        if tool_key not in self._called_tools:
+            inc = min(self._DENSE_NOVEL_TOOL, self._DENSE_CAP - self._dense_accum)
+            self._dense_accum += inc
+            step_reward = inc
+        else:
+            step_reward = 0.0
+        self._called_tools.add(tool_key)
+
         logger.info(
-            "Tool call | tool=%s | arg=%s | result=%s",
-            action.tool_name, action.tool_arg,
+            "Tool call | tool=%s | arg=%s | dense_reward=%.4f | result=%s",
+            action.tool_name, action.tool_arg, step_reward,
             result[:120].replace("\n", " "),
         )
 
         if self._state.budget_remaining <= 0:
             logger.warning("Budget exhausted without COMMIT — penalising episode.")
             return -0.1, True
-        return 0.0, False
+        return step_reward, False
 
     def _handle_commit(self, action: AMRAction) -> tuple[float, bool]:
         if not action.prescription:

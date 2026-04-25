@@ -32,6 +32,7 @@ from env.reward import (
     compute_total_reward,
     parse_prescription_from_text,
     parse_tool_calls_from_text,
+    R5_tool_efficiency,
     R6_format,
 )
 
@@ -175,42 +176,54 @@ def _patient_from_json(payload: str) -> PatientCase:
     return PatientCase(**json.loads(payload))
 
 
-def make_reward_fn():
-    """Return a GRPO-compatible reward function tied to the prompted patient case."""
+_BUDGET_BY_LEVEL = {1: 5, 2: 4, 3: 3}
 
-    def reward_fn(
-        prompts,
-        completions,
-        patient_json,
-        curriculum_level=None,
-        case_id=None,
-        log_metric=None,
-        log_extra=None,
-        **kwargs,
-    ) -> list[float]:
+
+def _extract_tool_type(tool_call_text: str) -> str:
+    """Extract the bare tool name from a parsed INVESTIGATE line."""
+    try:
+        return json.loads(tool_call_text.strip()).get("tool", tool_call_text)
+    except Exception:
+        return tool_call_text.split()[0] if tool_call_text.split() else "unknown"
+
+
+def make_format_reward_fn():
+    """Head 1: fast format signal — penalizes verbose completions."""
+    def fn(prompts, completions, **kwargs) -> list[float]:
+        return [float(R6_format(_completion_to_text(c))) * 0.05 for c in completions]
+    return fn
+
+
+def make_process_reward_fn():
+    """Head 2: investigation quality — diverse tool use with budget remaining."""
+    def fn(prompts, completions, patient_json, curriculum_level=None, **kwargs) -> list[float]:
         rewards: list[float] = []
-        breakdowns: list[dict[str, float]] = []
+        levels = list(curriculum_level) if curriculum_level is not None else [1] * len(completions)
+        for completion, level in zip(completions, levels):
+            text = _completion_to_text(completion)
+            tool_calls = parse_tool_calls_from_text(text)
+            budget_total = _BUDGET_BY_LEVEL.get(int(level), 5)
+            unique_types = len({_extract_tool_type(tc) for tc in tool_calls})
+            budget_spent = len(tool_calls)
+            budget_remaining = max(0, budget_total - budget_spent)
+            rewards.append(float(R5_tool_efficiency(unique_types, budget_spent, budget_remaining, budget_total)))
+        return rewards
+    return fn
 
+
+def make_terminal_reward_fn():
+    """Head 3: outcome quality ratio — agent prescription vs RLVR optimal."""
+    def fn(prompts, completions, patient_json, **kwargs) -> list[float]:
+        rewards: list[float] = []
         for completion, patient_payload in zip(completions, patient_json):
-            completion_text = _completion_to_text(completion)
-            prescription = parse_prescription_from_text(completion_text)
+            text = _completion_to_text(completion)
+            prescription = parse_prescription_from_text(text)
             if prescription is None:
                 rewards.append(0.0)
-                breakdowns.append(
-                    {
-                        "R1_activity": 0.0,
-                        "R2_guideline": 0.0,
-                        "R3_stewardship": 0.0,
-                        "R4_dose": 0.0,
-                        "R5_reasoning": 0.0,
-                        "total": 0.0,
-                    }
-                )
                 continue
-
             patient = _patient_from_json(patient_payload)
-            tool_calls = parse_tool_calls_from_text(completion_text)
-            total, breakdown = compute_total_reward(
+            tool_calls = parse_tool_calls_from_text(text)
+            total, _ = compute_total_reward(
                 prescription=prescription,
                 patient=patient,
                 tool_call_history=tool_calls,
@@ -218,32 +231,9 @@ def make_reward_fn():
                 idsa=_IDSA,
                 drug_properties=_DRUG_PROPS,
             )
-            r6 = R6_format(completion_text)
-            total = min(1.0, total + 0.05 * r6)
-            breakdown["R6_format"] = r6
             rewards.append(float(total))
-            breakdowns.append(breakdown)
-
-        if log_metric and breakdowns:
-            for metric in (
-                "R0_allergy",
-                "R1_activity",
-                "R2_guideline",
-                "R3_stewardship",
-                "R4_dose",
-                "R5_reasoning",
-                "R6_format",
-                "total",
-            ):
-                log_metric(metric, sum(b[metric] for b in breakdowns) / len(breakdowns))
-
-        if log_extra and case_id is not None:
-            log_extra("case_id", list(case_id))
-            log_extra("parsed_commit", ["yes" if r > 0 else "no" for r in rewards])
-
         return rewards
-
-    return reward_fn
+    return fn
 
 
 def load_model(model_name: str, use_unsloth: bool):
@@ -314,7 +304,7 @@ def load_model(model_name: str, use_unsloth: bool):
 
 def make_stage_plan(args: argparse.Namespace) -> list[tuple[int, int]]:
     if args.stage is not None:
-        samples = args.samples if args.samples is not None else dict(CURRICULUM)[args.stage]
+        samples = args.samples if args.samples is not None else CURRICULUM[args.stage - 1][0]
         return [(samples, args.stage)]
 
     if args.samples is not None:
@@ -359,7 +349,7 @@ def train_stage(
 
     trainer = GRPO_TRAINER_CLS(
         model=model,
-        reward_funcs=make_reward_fn(),
+        reward_funcs=[make_format_reward_fn(), make_process_reward_fn(), make_terminal_reward_fn()],
         args=config,
         train_dataset=dataset,
         processing_class=tokenizer,
