@@ -43,11 +43,11 @@ HARDWARE_ALIASES = {
 def parse_args():
     p = argparse.ArgumentParser(description="Submit AMR-Steward training job to HF.")
     p.add_argument("--token",    required=True, help="HuggingFace write token")
-    p.add_argument("--hardware", default="t4-medium",
+    p.add_argument("--hardware", default="a10g-large",
                    choices=list(HARDWARE_ALIASES.keys()),
-                   help="GPU hardware tier (default: t4-medium)")
-    p.add_argument("--model",    default="Qwen/Qwen3-1.5B",
-                   help="Base model (default: Qwen/Qwen3-1.5B)")
+                   help="GPU hardware tier (default: a10g-large ~$3/hr, fits Qwen3-4B)")
+    p.add_argument("--model",    default="Qwen/Qwen3-4B",
+                   help="Base model (default: Qwen/Qwen3-4B)")
     p.add_argument("--repo",     default=TRAINER_REPO,
                    help="Space repo id to create (default: %(default)s)")
     p.add_argument("--samples",  nargs=3, type=int, default=[128, 64, 32],
@@ -101,11 +101,12 @@ def main():
 
     # 3. Set Space secrets (token + config)
     print("Setting Space secrets ...")
-    api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value=args.token)
-    api.add_space_secret(repo_id=repo_id, key="MODEL_NAME", value=args.model)
-    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S1", value=str(s1))
-    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S2", value=str(s2))
-    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S3", value=str(s3))
+    api.add_space_secret(repo_id=repo_id, key="HF_TOKEN",      value=args.token)
+    api.add_space_secret(repo_id=repo_id, key="TRAINER_REPO",  value=repo_id)   # for auto-pause
+    api.add_space_secret(repo_id=repo_id, key="MODEL_NAME",    value=args.model)
+    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S1",    value=str(s1))
+    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S2",    value=str(s2))
+    api.add_space_secret(repo_id=repo_id, key="SAMPLES_S3",    value=str(s3))
 
     # 4. Upgrade hardware
     print(f"Requesting hardware: {hw} ...")
@@ -115,7 +116,8 @@ def main():
     print(f"\nTraining Space live: {space_url}")
     print(f"Model will be pushed to: https://huggingface.co/saaheerpurav/amr-steward-model")
     print(f"\nStatus page (once Space starts): https://{repo_id.replace('/', '-')}.hf.space")
-    print(f"\nEstimated cost: ~${{'t4-medium':0.60,'a10g-small':1.05,'a10g-large':3.15,'a100-large':7.60}.get(hw,4.0) * 1.5:.2f} for full training")
+    rate = {'t4-medium':0.60,'a10g-small':1.05,'a10g-large':3.15,'a100-large':7.60}.get(hw,4.0)
+    print(f"\nEstimated cost: ~${rate * 1.5:.2f} (Space auto-pauses when training finishes)")
 
     if args.watch:
         print("\nWatching logs (Ctrl-C to stop watching — training continues):\n")

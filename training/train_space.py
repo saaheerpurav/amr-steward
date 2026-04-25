@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Any
 
 # ── Config (override via HF Space secrets) ────────────────────────────────────
-MODEL_NAME      = os.getenv("MODEL_NAME",    "Qwen/Qwen3-1.5B")
+MODEL_NAME      = os.getenv("MODEL_NAME",    "Qwen/Qwen3-4B")
 HF_REPO_ID      = os.getenv("HF_REPO_ID",   "saaheerpurav/amr-steward-model")
+TRAINER_REPO    = os.getenv("TRAINER_REPO",  "saaheerpurav/amr-steward-trainer")
 HF_TOKEN        = os.getenv("HF_TOKEN",      "")
 OUTPUT_DIR      = "/app/checkpoints"
 SAMPLES_S1      = int(os.getenv("SAMPLES_S1", "128"))
@@ -432,18 +433,37 @@ def train_main():
         log(f"ERROR: {exc}")
         traceback.print_exc()
 
+    finally:
+        _auto_pause_space()
+
+
+def _auto_pause_space():
+    """Pause this Space after training so GPU billing stops immediately."""
+    if not HF_TOKEN or not TRAINER_REPO:
+        log("Auto-pause skipped: HF_TOKEN or TRAINER_REPO not set.")
+        return
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi(token=HF_TOKEN)
+        log(f"Pausing Space {TRAINER_REPO} to stop GPU billing ...")
+        api.pause_space(repo_id=TRAINER_REPO)
+        log("Space paused. GPU billing stopped. Model is on HF Hub.")
+    except Exception as e:
+        log(f"Auto-pause failed ({e}). Pause manually at huggingface.co/spaces/{TRAINER_REPO}")
+
 
 if __name__ == "__main__":
-    # Start status server in background
+    # Start status server in background thread
     server_thread = threading.Thread(target=_run_status_server, daemon=True)
     server_thread.start()
 
     # Give server a moment to bind
     time.sleep(2)
 
-    # Run training in main thread
+    # Run training — auto-pause fires in finally block when done or on error
     train_main()
 
-    # Keep status server alive after training finishes
-    log("Status server running. Space will show 'done'. Safe to delete.")
-    server_thread.join()
+    # Brief window so the status page shows "done" before the Space pauses
+    log("Waiting 60s before auto-pause so status page is readable ...")
+    time.sleep(60)
+    _auto_pause_space()
