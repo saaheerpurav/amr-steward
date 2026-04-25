@@ -59,18 +59,27 @@ env.step(COMMIT: {drug: "ceftazidime-avibactam", dose: "2.5g IV q8h", duration: 
 
 ## Reward Functions
 
-All five components are pure functions — no LLM judge.
+All components are pure functions — no LLM judge. The terminal reward is RLVR-verifiable.
 
-| Component | Weight | What it measures |
-|-----------|--------|-----------------|
-| **R1** Microbiological activity | 40% | Does the drug cover this organism? (EUCAST MIC lookup) |
-| **R2** Guideline concordance | 25% | Is this the IDSA-recommended agent? (1.0 = first-line, 0.5 = alternative) |
-| **R3** Stewardship | 15% | Is this the *narrowest* effective drug? Penalizes unnecessary broad-spectrum use |
-| **R4** Dose correctness | 10% | Is the dose appropriate for this patient's renal function? |
-| **R5** Reasoning grounding | 5% | Did the agent investigate before committing? (tool call history check) |
-| **R6** Output format | 5% | Is the output a clean single COMMIT line? Rewards concise, parseable output |
+| Component | Role | What it measures |
+|-----------|------|-----------------|
+| **R0** Allergy safety | Hard gate | Prescribing a drug the patient is allergic to → total = 0.0 immediately |
+| **R1** Microbiological activity | Oracle input | Does the drug cover this organism? (EUCAST MIC lookup) |
+| **R2** Guideline concordance | Oracle input | Is this the IDSA-recommended agent? (1.0 = first-line, 0.5 = alternative) |
+| **R3** Stewardship | Oracle input | Is this the *narrowest* effective drug? Penalizes unnecessary broad-spectrum use |
+| **R4** Dose correctness | Oracle input | Is the dose appropriate for this patient's renal function? |
+| **R5** Tool efficiency | Process signal | `(unique_tool_types / budget_spent) × (budget_remaining / budget_total)` |
+| **R6** Output format | Format signal | Clean single COMMIT line (1.0 for ≤3 lines, decays 0.05/line after) |
 
-**Training reward** = 0.40·R1 + 0.25·R2 + 0.15·R3 + 0.10·R4 + 0.05·R5 + 0.05·R6
+**Quality ratio** (RLVR oracle): for each patient, `compute_optimal_prescription()` brute-forces all antibiogram drugs to find the maximum achievable process score. The agent is then scored relative to that optimum:
+
+```
+process_score = 0.40·R1 + 0.25·R2 + 0.15·R3 + 0.10·R4
+quality_ratio = min(1.0, process_score / opt_score)   ← 1.0 iff agent found optimal prescription
+total         = 0.90·quality_ratio + 0.10·R5
+```
+
+**Multi-head GRPO**: three independent reward functions give the trainer separate gradient channels — format (R6, fast feedback), process (R5 tool efficiency, dense), terminal (quality_ratio, sparse). Each provides a different learning signal at a different timescale.
 
 ---
 
@@ -96,9 +105,11 @@ The world model is pre-trained on 5,201 synthetic (state, tool, next-state) trip
 - Target encoder: EMA copy of context encoder (decay = 0.99)
 - State vector: 64-dim handcrafted features (organism, phenotype, site, CrCl, allergy flags, tool-called flags, antibiogram presence)
 
-**Information gain** is measured as `1 - cosine_similarity(predicted_next_repr, current_repr)` — tools that are expected to shift the state representation more are ranked higher.
+**Information gain** is measured as `||pred_next - ctx|| / sqrt(repr_dim)` (L2 norm of the predicted state delta, normalized by dimension) — tools that are expected to shift the state representation further are ranked higher.
 
-Weights are pre-trained locally (`jepa_pretrain.py`) and committed as `jepa_weights.pt`. The environment auto-loads them at startup.
+Weights are pre-trained locally (`jepa_pretrain.py`) on 5,201 synthetic triples and committed as `jepa_weights.pt`. The environment auto-loads them at startup.
+
+**Dense shaping**: INVESTIGATE steps earn `+0.04` reward for each novel tool type called, hard-capped at `+0.20` total so the terminal quality_ratio always dominates. This prevents the agent from learning to commit blindly while still providing gradient signal during the investigation phase.
 
 ---
 
@@ -124,9 +135,13 @@ GRPO training on `Qwen/Qwen3-0.6B` across three curriculum stages (T4 GPU, ~2 ho
 | 2 | Resistant / MDR | 16 | **0.383** | 0.331 |
 | 3 | MDR + renal + allergies | 8 | **0.291** | 0.250 |
 
-Key observation: reward stays consistent across stages (0.25–0.39) even as case complexity increases — the model handles MDR+renal cases at the same level as simple susceptible cases, showing genuine generalisation rather than memorisation.
+Reward stays consistent across stages (0.25–0.39) even as case complexity increases — the model generalises to MDR+renal cases at the same reward level as simple susceptible cases.
 
-A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0**. Random prescribing on these cases scores ~0.05–0.10.
+**Training curve (Stage 1):**
+
+![Stage 1 reward curve](reward_curves.png)
+
+A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores 0.30–0.39 on held-out cases.
 
 ---
 
@@ -166,12 +181,21 @@ print(obs.metadata["reward_breakdown"])
 
 ### REST API (OpenEnv)
 
+```bash
+# Start episode
+POST /reset   {"curriculum_level": 1}
+→ {"observation": {...}, "reward": null, "done": false}
+
+# Take a step
+POST /step    {"action": {"action_type": "INVESTIGATE", "tool_name": "interpret_resistance", "tool_arg": "meropenem"}}
+POST /step    {"action": {"action_type": "COMMIT", "prescription": {"drug": "...", "dose": "...", "duration": "...", "justification": "..."}}}
+→ {"observation": {...}, "reward": 0.92, "done": true}
+
+GET  /state   → full episode state
+GET  /health  → 200 OK
 ```
-GET  /reset?level=1      → AMRObservation JSON
-POST /step               → {action} → {observation, reward, done}
-GET  /state              → full episode state
-GET  /health             → 200 OK
-```
+
+See [`demo.py`](demo.py) for a complete worked example comparing an untrained broad-spectrum guess against a trained IDSA-first-line prescription.
 
 ---
 
