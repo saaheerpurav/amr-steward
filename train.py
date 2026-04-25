@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -21,18 +20,6 @@ from typing import Any
 
 import torch
 from datasets import Dataset
-
-try:
-    from unsloth import FastLanguageModel
-
-    USE_UNSLOTH = True
-except ImportError:
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
-    USE_UNSLOTH = False
-    print("Unsloth not available; falling back to vanilla transformers.")
-
-from trl import GRPOConfig, GRPOTrainer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -48,7 +35,7 @@ from env.reward import (
 )
 
 
-DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-0.6B"
 MAX_SEQ_LEN = 2048
 LORA_R = 16
 LORA_ALPHA = 32
@@ -82,6 +69,9 @@ Do not output anything after the COMMIT line.
 
 _IDSA = _load_idsa()
 _DRUG_PROPS = _load_drug_properties()
+FAST_LANGUAGE_MODEL = None
+GRPO_CONFIG_CLS = None
+GRPO_TRAINER_CLS = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -117,6 +107,27 @@ def parse_args() -> argparse.Namespace:
         help="Attempt to save a merged model when supported by the runtime.",
     )
     return parser.parse_args()
+
+
+def setup_runtime(disable_unsloth: bool) -> bool:
+    """Import training backends lazily so --disable-unsloth actually works."""
+    global FAST_LANGUAGE_MODEL, GRPO_CONFIG_CLS, GRPO_TRAINER_CLS
+
+    use_unsloth = False
+    if not disable_unsloth:
+        try:
+            from unsloth import FastLanguageModel
+
+            FAST_LANGUAGE_MODEL = FastLanguageModel
+            use_unsloth = True
+        except ImportError:
+            print("Unsloth not available; falling back to vanilla transformers.")
+
+    from trl import GRPOConfig, GRPOTrainer
+
+    GRPO_CONFIG_CLS = GRPOConfig
+    GRPO_TRAINER_CLS = GRPOTrainer
+    return use_unsloth
 
 
 def _render_prompt(obs) -> str:
@@ -236,17 +247,15 @@ def make_reward_fn():
     return reward_fn
 
 
-def load_model(model_name: str, disable_unsloth: bool):
-    use_unsloth = USE_UNSLOTH and not disable_unsloth
-
+def load_model(model_name: str, use_unsloth: bool):
     if use_unsloth:
-        model, tokenizer = FastLanguageModel.from_pretrained(
+        model, tokenizer = FAST_LANGUAGE_MODEL.from_pretrained(
             model_name=model_name,
             max_seq_length=MAX_SEQ_LEN,
             dtype=None,
             load_in_4bit=True,
         )
-        model = FastLanguageModel.get_peft_model(
+        model = FAST_LANGUAGE_MODEL.get_peft_model(
             model,
             r=LORA_R,
             target_modules=[
@@ -328,7 +337,7 @@ def train_stage(
     stage_output_dir = f"{args.output_dir}/stage{stage_index}"
 
     bf16_supported = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-    config = GRPOConfig(
+    config = GRPO_CONFIG_CLS(
         output_dir=stage_output_dir,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
@@ -349,7 +358,7 @@ def train_stage(
         use_vllm=False,
     )
 
-    trainer = GRPOTrainer(
+    trainer = GRPO_TRAINER_CLS(
         model=model,
         reward_funcs=make_reward_fn(),
         args=config,
@@ -365,14 +374,14 @@ def train_stage(
     return trainer
 
 
-def save_final_artifacts(trainer, tokenizer, args: argparse.Namespace):
+def save_final_artifacts(trainer, tokenizer, args: argparse.Namespace, use_unsloth: bool):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     trainer.save_model(str(output_dir))
     tokenizer.save_pretrained(str(output_dir))
 
-    if args.save_merged and USE_UNSLOTH and hasattr(trainer.model, "save_pretrained_merged"):
+    if args.save_merged and use_unsloth and hasattr(trainer.model, "save_pretrained_merged"):
         merged_dir = output_dir / "merged_16bit"
         trainer.model.save_pretrained_merged(str(merged_dir), tokenizer, save_method="merged_16bit")
         print(f"Saved merged model to {merged_dir}")
@@ -380,8 +389,9 @@ def save_final_artifacts(trainer, tokenizer, args: argparse.Namespace):
 
 def main():
     args = parse_args()
+    use_unsloth = setup_runtime(args.disable_unsloth)
     print(f"Loading model: {args.model_name}")
-    model, tokenizer = load_model(args.model_name, args.disable_unsloth)
+    model, tokenizer = load_model(args.model_name, use_unsloth)
 
     trainer = None
     for stage_index, (num_samples, level) in enumerate(make_stage_plan(args), start=1):
@@ -391,7 +401,7 @@ def main():
         raise RuntimeError("No training stages were scheduled.")
 
     print(f"\nSaving final artifacts to {args.output_dir}")
-    save_final_artifacts(trainer, tokenizer, args)
+    save_final_artifacts(trainer, tokenizer, args, use_unsloth)
     print("Done.")
 
 
