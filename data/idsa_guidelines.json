@@ -1,5 +1,5 @@
 {
-  "_comment": "PALAK OWNS THIS FILE. Fill in all entries. Source: IDSA clinical practice guidelines.",
+  "_comment": "IDSA clinical practice guidelines. Source: IDSA 2022/2023 guidelines.",
   "_structure": "syndrome → organism → {first_line, dose, duration, notes, alternatives}",
 
   "bacteremia": {
@@ -22,35 +22,35 @@
       "dose": "2.5g IV q8h",
       "duration": "14 days",
       "notes": "Carbapenem-resistant Enterobacterales. Confirm no MBL before using.",
-      "alternatives": ["meropenem-vaborbactam", "ceftolozane-tazobactam"]
+      "alternatives": ["meropenem-vaborbactam"]
     },
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "14 days",
+      "notes": "Preferred agent for gram-negative bacteremia due to susceptible E. coli.",
+      "alternatives": ["piperacillin-tazobactam", "ertapenem"]
     },
     "E. coli (ESBL)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ertapenem",
+      "dose": "1g IV q24h",
+      "duration": "14 days",
+      "notes": "ESBL E. coli — carbapenems are drug of choice. Meropenem if critically ill.",
+      "alternatives": ["meropenem"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "14 days",
+      "notes": "Anti-pseudomonal beta-lactam preferred. Get susceptibilities to guide de-escalation.",
+      "alternatives": ["cefepime", "meropenem"]
     },
     "S. aureus (MSSA)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "oxacillin",
+      "dose": "2g IV q4h",
+      "duration": "14-42 days depending on source",
+      "notes": "Anti-staphylococcal penicillin is preferred over vancomycin for MSSA.",
+      "alternatives": ["cefazolin", "nafcillin"]
     },
     "S. aureus (MRSA)": {
       "first_line": "vancomycin",
@@ -60,90 +60,174 @@
       "alternatives": ["daptomycin"]
     },
     "Enterococcus (VSE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ampicillin",
+      "dose": "2g IV q4h",
+      "duration": "14 days (uncomplicated); 28-42 days (endocarditis)",
+      "notes": "Ampicillin is preferred for ampicillin-susceptible Enterococcus. Add gentamicin for endocarditis.",
+      "alternatives": ["vancomycin"]
     },
     "Enterococcus (VRE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "linezolid",
+      "dose": "600mg IV/PO q12h",
+      "duration": "14-42 days",
+      "notes": "VRE bacteremia. Daptomycin preferred if high inoculum. Linezolid for VRE faecium.",
+      "alternatives": ["daptomycin"]
     }
   },
 
   "UTI": {
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "trimethoprim-sulfamethoxazole",
+      "dose": "1 DS tab (160/800mg) PO q12h",
+      "duration": "3 days (uncomplicated); 7-14 days (complicated/pyelonephritis)",
+      "notes": "First-line for uncomplicated UTI if local resistance <20%. Confirm susceptibility.",
+      "alternatives": ["nitrofurantoin", "ceftriaxone"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "trimethoprim-sulfamethoxazole",
+      "dose": "1 DS tab (160/800mg) PO q12h",
+      "duration": "7-14 days",
+      "notes": "Oral step-down preferred when susceptible. Ceftriaxone IV for pyelonephritis.",
+      "alternatives": ["ceftriaxone", "nitrofurantoin"]
     },
     "K. pneumoniae (CRE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "7-14 days",
+      "notes": "CRE UTI — systemic therapy required. Confirm KPC vs. MBL genotype.",
+      "alternatives": ["meropenem-vaborbactam", "colistin"]
+    },
+    "E. coli (ESBL)": {
+      "first_line": "ertapenem",
+      "dose": "1g IV q24h",
+      "duration": "7-14 days",
+      "notes": "ESBL UTI — carbapenems for complicated/pyelonephritis.",
+      "alternatives": ["meropenem"]
+    },
+    "P. aeruginosa (susceptible)": {
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "10-14 days",
+      "notes": "Pseudomonal UTI typically requires anti-pseudomonal beta-lactam.",
+      "alternatives": ["cefepime", "meropenem"]
     }
   },
 
   "pneumonia": {
     "S. aureus (MRSA)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "vancomycin",
+      "dose": "25-30 mg/kg/day IV divided q8-12h",
+      "duration": "7-21 days",
+      "notes": "MRSA pneumonia — vancomycin or linezolid. Linezolid may have better lung penetration.",
+      "alternatives": ["linezolid"]
+    },
+    "S. aureus (MSSA)": {
+      "first_line": "oxacillin",
+      "dose": "2g IV q4h",
+      "duration": "7-21 days",
+      "notes": "Anti-staphylococcal penicillin preferred over vancomycin for MSSA pneumonia.",
+      "alternatives": ["cefazolin", "nafcillin"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "7-14 days",
+      "notes": "HAP/VAP due to Pseudomonas — anti-pseudomonal beta-lactam. Avoid daptomycin (lung surfactant).",
+      "alternatives": ["cefepime", "meropenem"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "7-14 days",
+      "notes": "CAP-appropriate regimen. Escalate to carbapenem if ESBL suspected.",
+      "alternatives": ["ampicillin-sulbactam", "ertapenem"]
+    },
+    "K. pneumoniae (CRE)": {
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "10-14 days",
+      "notes": "CRE pneumonia — ceftazidime-avibactam for KPC. Confirm susceptibility pattern.",
+      "alternatives": ["meropenem-vaborbactam"]
+    },
+    "E. coli (susceptible)": {
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "7-10 days",
+      "notes": "Gram-negative pneumonia — adjust based on susceptibility report.",
+      "alternatives": ["piperacillin-tazobactam", "ertapenem"]
+    },
+    "Enterococcus (VSE)": {
+      "first_line": "ampicillin",
+      "dose": "2g IV q4h",
+      "duration": "7-14 days",
+      "notes": "Enterococcal pneumonia — uncommon, usually aspiration-related.",
+      "alternatives": ["vancomycin"]
+    },
+    "Enterococcus (VRE)": {
+      "first_line": "linezolid",
+      "dose": "600mg IV/PO q12h",
+      "duration": "7-14 days",
+      "notes": "VRE pneumonia — linezolid preferred due to lung penetration.",
+      "alternatives": ["daptomycin"]
     }
   },
 
   "intra-abdominal": {
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days (post source control)",
+      "notes": "Community-onset IAI — covers gram-negatives and anaerobes.",
+      "alternatives": ["ertapenem", "ceftriaxone"]
+    },
+    "E. coli (ESBL)": {
+      "first_line": "ertapenem",
+      "dose": "1g IV q24h",
+      "duration": "4-7 days",
+      "notes": "ESBL IAI — ertapenem preferred over meropenem for non-critical cases (stewardship).",
+      "alternatives": ["meropenem"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days",
+      "notes": "Intra-abdominal source. Good coverage of gram-negatives + anaerobes.",
+      "alternatives": ["ertapenem", "ceftriaxone"]
+    },
+    "K. pneumoniae (CRE)": {
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "7-14 days",
+      "notes": "CRE IAI — needs active coverage. Source control critical.",
+      "alternatives": ["meropenem-vaborbactam"]
     },
     "Enterococcus (VSE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ampicillin-sulbactam",
+      "dose": "3g IV q6h",
+      "duration": "4-7 days",
+      "notes": "Enterococcal IAI — ampicillin-sulbactam covers enterococci + anaerobes.",
+      "alternatives": ["piperacillin-tazobactam", "vancomycin"]
+    },
+    "Enterococcus (VRE)": {
+      "first_line": "linezolid",
+      "dose": "600mg IV/PO q12h",
+      "duration": "7-14 days",
+      "notes": "VRE IAI — rare. Ensure source control. Daptomycin alternative.",
+      "alternatives": ["daptomycin"]
+    },
+    "P. aeruginosa (susceptible)": {
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "7-14 days",
+      "notes": "Hospital-acquired IAI or prior antibiotic exposure — cover Pseudomonas.",
+      "alternatives": ["cefepime", "meropenem"]
+    },
+    "S. aureus (MRSA)": {
+      "first_line": "vancomycin",
+      "dose": "25-30 mg/kg/day IV divided q8-12h",
+      "duration": "7-14 days",
+      "notes": "MRSA IAI — uncommon, usually post-surgical. Combine with anaerobic coverage.",
+      "alternatives": ["daptomycin"]
     }
   }
 }
