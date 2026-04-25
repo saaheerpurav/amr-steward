@@ -153,6 +153,8 @@ class AMRState(State):
         description="Serialised PatientCase for the active episode (debugging only).",
     )
     tool_results: List[str] = Field(default_factory=list)
+    called_tools: List[str] = Field(default_factory=list)
+    dense_accum: float = Field(default=0.0)
     last_reward_breakdown: Optional[Dict[str, float]] = Field(
         default=None,
         description="Per-component reward breakdown from the last COMMIT.",

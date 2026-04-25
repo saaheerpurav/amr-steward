@@ -311,6 +311,13 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         **kwargs: Any,
     ) -> AMRObservation:
         """Apply an action. Reward is returned via observation.reward."""
+        # openenv-core may serialize env.state and inject it into a fresh instance
+        # between requests. Restore Python-only attributes from the state dict.
+        if self.current_patient is None and self._state.patient is not None:
+            self.current_patient = PatientCase(**self._state.patient)
+            self._dense_accum = self._state.dense_accum
+            self._called_tools = set(self._state.called_tools)
+
         if self._state.done:
             raise ValueError("Episode is already done. Call reset() first.")
         if self.current_patient is None:
@@ -364,6 +371,9 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         else:
             step_reward = 0.0
         self._called_tools.add(tool_key)
+        # Persist into state so it survives openenv-core serialization
+        self._state.called_tools = list(self._called_tools)
+        self._state.dense_accum = self._dense_accum
 
         logger.info(
             "Tool call | tool=%s | arg=%s | dense_reward=%.4f | result=%s",
