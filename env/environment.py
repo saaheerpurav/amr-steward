@@ -227,7 +227,7 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
     state on `self` is safe.
     """
 
-    SUPPORTS_CONCURRENT_SESSIONS = True
+    SUPPORTS_CONCURRENT_SESSIONS = False
 
     def __init__(self) -> None:
         super().__init__()
