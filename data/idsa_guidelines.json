@@ -25,32 +25,32 @@
       "alternatives": ["meropenem-vaborbactam", "ceftolozane-tazobactam"]
     },
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "7-14 days",
+      "notes": "Susceptible E. coli bloodstream infection. De-escalate to the narrowest active agent once stable.",
+      "alternatives": ["cefepime", "piperacillin-tazobactam"]
     },
     "E. coli (ESBL)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ertapenem",
+      "dose": "1g IV q24h",
+      "duration": "7-14 days",
+      "notes": "ESBL-producing E. coli bacteremia. Carbapenem therapy is preferred for invasive infection.",
+      "alternatives": ["meropenem"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "cefepime",
+      "dose": "2g IV q8h",
+      "duration": "7-14 days",
+      "notes": "Use an active antipseudomonal beta-lactam and narrow based on susceptibility.",
+      "alternatives": ["piperacillin-tazobactam", "meropenem"]
     },
     "S. aureus (MSSA)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "cefazolin",
+      "dose": "2g IV q8h",
+      "duration": "14-42 days depending on source and complications",
+      "notes": "MSSA bacteremia should receive an anti-staphylococcal beta-lactam when tolerated.",
+      "alternatives": ["nafcillin", "oxacillin"]
     },
     "S. aureus (MRSA)": {
       "first_line": "vancomycin",
@@ -60,90 +60,90 @@
       "alternatives": ["daptomycin"]
     },
     "Enterococcus (VSE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ampicillin",
+      "dose": "2g IV q4h",
+      "duration": "7-14 days",
+      "notes": "Vancomycin-susceptible, ampicillin-susceptible Enterococcus. Ampicillin is preferred when susceptible.",
+      "alternatives": ["vancomycin"]
     },
     "Enterococcus (VRE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "linezolid",
+      "dose": "600mg IV/PO q12h",
+      "duration": "7-14 days",
+      "notes": "Vancomycin-resistant Enterococcus. Use linezolid or daptomycin based on syndrome and susceptibility.",
+      "alternatives": ["daptomycin"]
     }
   },
 
   "UTI": {
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "1g IV q24h",
+      "duration": "7 days",
+      "notes": "Complicated UTI or pyelonephritis. Step down to active oral therapy when clinically stable.",
+      "alternatives": ["trimethoprim-sulfamethoxazole", "ciprofloxacin"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "1g IV q24h",
+      "duration": "7 days",
+      "notes": "Susceptible Klebsiella complicated UTI. Narrow therapy once susceptibility is known.",
+      "alternatives": ["trimethoprim-sulfamethoxazole", "ciprofloxacin"]
     },
     "K. pneumoniae (CRE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftazidime-avibactam",
+      "dose": "2.5g IV q8h",
+      "duration": "7 days",
+      "notes": "CRE complicated UTI. Confirm susceptibility and avoid inactive carbapenems.",
+      "alternatives": ["meropenem-vaborbactam", "cefiderocol"]
     }
   },
 
   "pneumonia": {
     "S. aureus (MRSA)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "vancomycin",
+      "dose": "15-20mg/kg IV q8-12h with AUC-guided monitoring",
+      "duration": "7 days",
+      "notes": "MRSA pneumonia. Linezolid is a common alternative; do not use daptomycin for pneumonia.",
+      "alternatives": ["linezolid"]
     },
     "P. aeruginosa (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "cefepime",
+      "dose": "2g IV q8h",
+      "duration": "7 days",
+      "notes": "Hospital-acquired or ventilator-associated pneumonia with susceptible Pseudomonas.",
+      "alternatives": ["piperacillin-tazobactam", "meropenem"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "ceftriaxone",
+      "dose": "2g IV q24h",
+      "duration": "7 days",
+      "notes": "Susceptible Klebsiella pneumonia. De-escalate from broad empiric therapy when possible.",
+      "alternatives": ["cefepime"]
     }
   },
 
   "intra-abdominal": {
     "E. coli (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days after adequate source control",
+      "notes": "Complicated intra-abdominal infection needs gram-negative and anaerobic coverage plus source control.",
+      "alternatives": ["ceftriaxone + metronidazole", "ertapenem"]
     },
     "K. pneumoniae (susceptible)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days after adequate source control",
+      "notes": "Susceptible Klebsiella intra-abdominal infection. Maintain anaerobic coverage.",
+      "alternatives": ["ceftriaxone + metronidazole", "ertapenem"]
     },
     "Enterococcus (VSE)": {
-      "first_line": "TODO - Palak to fill",
-      "dose": "TODO",
-      "duration": "TODO",
-      "notes": "TODO",
-      "alternatives": []
+      "first_line": "piperacillin-tazobactam",
+      "dose": "4.5g IV q6h",
+      "duration": "4-7 days after adequate source control",
+      "notes": "Covers susceptible Enterococcus faecalis plus gram-negative and anaerobic intra-abdominal flora.",
+      "alternatives": ["ampicillin + ceftriaxone + metronidazole"]
     }
   }
 }
