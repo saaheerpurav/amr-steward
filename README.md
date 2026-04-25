@@ -12,6 +12,8 @@ pinned: false
 
 **RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. No LLM judges.
 
+**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth · HuggingFace Spaces
+
 ---
 
 ## The Problem
@@ -214,7 +216,18 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 |----------|-----|
 | Live Environment (HF Space) | https://divyanshb06-amrsteward.hf.space |
 | Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
-| Training Notebook (Colab) | [AMR_Steward.ipynb](AMR_Steward.ipynb) |
+| Training Notebook (Colab) | https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb |
+
+---
+
+## Judging Criteria
+
+| Criterion | Weight | Evidence |
+|---|---|---|
+| **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Joint Embedding Predictive Architecture, Meta AI) pre-trained on 5,201 synthetic clinical episodes guides investigation strategy. Quality-ratio oracle brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 stewardship gated on R1 — three independent anti-hacking layers. |
+| **Storytelling** | 30% | 1.27 million people die from antimicrobial resistance per year — more than HIV or malaria. The before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward 0.12, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.91). Wrong drug → patient dies. Right drug → patient lives. |
+| **Showing Improvement** | 20% | GRPO training on Qwen3-0.6B across three curriculum stages (T4 GPU). Stage 1: 0.22 → 0.39. Stage 2: 0.27 → 0.38. Stage 3: 0.25 → 0.29. Reward holds consistent as case complexity increases from susceptible organisms to MDR + renal failure + allergy constraints. Training curve committed as `reward_curves.png`. |
+| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at different timescales. Dense shaping (+0.04/novel tool, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6), all pure functions — no LLM judge anywhere in the pipeline. |
 
 ---
 
