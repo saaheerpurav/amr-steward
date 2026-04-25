@@ -228,7 +228,7 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
     state on `self` is safe.
     """
 
-    SUPPORTS_CONCURRENT_SESSIONS = False
+    SUPPORTS_CONCURRENT_SESSIONS = True
 
     _DENSE_NOVEL_TOOL = 0.04
     _DENSE_CAP = 0.20

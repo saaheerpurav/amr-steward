@@ -433,9 +433,6 @@ def train_main():
         log(f"ERROR: {exc}")
         traceback.print_exc()
 
-    finally:
-        _auto_pause_space()
-
 
 def _auto_pause_space():
     """Pause this Space after training so GPU billing stops immediately."""
