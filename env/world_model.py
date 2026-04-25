@@ -1,29 +1,49 @@
 # SAAHEER OWNS THIS FILE
 # JEPA-inspired world model for diagnostic information gain prediction.
 # Pre-trained separately, frozen during GRPO training.
-# TODO Saaheer: implement AMRWorldModel
 
+import re
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from copy import deepcopy
 
+# Compound tool+arg keys the world model reasons over.
+# Format: <tool_name>_<arg> for resistance tools, bare name for others.
 AVAILABLE_TOOLS = [
     "interpret_resistance_meropenem",
-    "interpret_resistance_ceftazidime_avibactam",
+    "interpret_resistance_ceftazidime-avibactam",
     "interpret_resistance_colistin",
     "interpret_resistance_vancomycin",
     "interpret_resistance_ceftriaxone",
-    "interpret_resistance_piperacillin_tazobactam",
+    "interpret_resistance_piperacillin-tazobactam",
     "check_guideline_bacteremia",
     "check_guideline_UTI",
     "check_guideline_pneumonia",
-    "check_guideline_intra_abdominal",
+    "check_guideline_intra-abdominal",
     "assess_patient_factors",
     "interpret_resistance_tigecycline",
+    "interpret_resistance_cefepime",
+    "interpret_resistance_ertapenem",
+    "interpret_resistance_linezolid",
+    "interpret_resistance_daptomycin",
 ]
 NUM_TOOLS = len(AVAILABLE_TOOLS)
 TOOL_TO_IDX = {t: i for i, t in enumerate(AVAILABLE_TOOLS)}
+
+STATE_DIM = 64
+REPR_DIM = 128
+
+# Fixed list of drugs for the antibiogram presence sub-vector (dims 39-63)
+_ANTIBIOGRAM_DRUGS = [
+    "meropenem", "ceftriaxone", "piperacillin-tazobactam", "ertapenem",
+    "ceftazidime-avibactam", "colistin", "cefepime", "vancomycin",
+    "daptomycin", "linezolid", "oxacillin", "cefazolin",
+    "ampicillin", "tigecycline", "trimethoprim-sulfamethoxazole",
+    "nitrofurantoin", "meropenem-vaborbactam", "ciprofloxacin",
+    "ceftolozane-tazobactam", "cefiderocol", "nafcillin",
+    "imipenem", "ampicillin-sulbactam", "fosfomycin", "azithromycin",
+]
 
 
 class AMRWorldModel(nn.Module):
@@ -31,23 +51,20 @@ class AMRWorldModel(nn.Module):
     Predicts information gain of running each diagnostic test
     given what the agent already knows."""
 
-    def __init__(self, state_dim: int = 64, repr_dim: int = 128, ema_decay: float = 0.99):
+    def __init__(self, state_dim: int = STATE_DIM, repr_dim: int = REPR_DIM, ema_decay: float = 0.99):
         super().__init__()
         self.ema_decay = ema_decay
 
-        # Context encoder: known state → abstract representation
         self.context_encoder = nn.Sequential(
             nn.Linear(state_dim, 256),
             nn.ReLU(),
             nn.Linear(256, repr_dim),
         )
 
-        # Target encoder: EMA copy, not trained by backprop
         self.target_encoder = deepcopy(self.context_encoder)
         for p in self.target_encoder.parameters():
             p.requires_grad = False
 
-        # Predictor: context repr + test one-hot → predicted target repr
         self.predictor = nn.Sequential(
             nn.Linear(repr_dim + NUM_TOOLS, 256),
             nn.ReLU(),
@@ -70,12 +87,12 @@ class AMRWorldModel(nn.Module):
         return pred_repr, tgt_repr
 
     def predict_information_gain(self, known_state: torch.Tensor, tool_name: str) -> float:
-        """Returns estimated information gain (0-1) for running a specific tool."""
+        """Returns estimated information gain (0–1) for running a specific tool."""
         tool_idx = torch.tensor(TOOL_TO_IDX.get(tool_name, 0))
         pred_repr, tgt_repr = self.forward(known_state.unsqueeze(0), tool_idx.unsqueeze(0))
-        # Information gain = how different predicted state is from current
         gain = 1.0 - F.cosine_similarity(pred_repr, tgt_repr, dim=-1).item()
-        return float(gain)
+        # cosine similarity is in [-1, 1]; clip to [0, 1]
+        return float(max(0.0, min(1.0, gain)))
 
     def get_test_rankings(self, known_state: torch.Tensor, available_tools: list[str]) -> list[tuple[str, float]]:
         """Returns tools sorted by predicted information gain (highest first)."""
@@ -83,21 +100,123 @@ class AMRWorldModel(nn.Module):
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
     def encode_known_state(self, tool_results: list[str], patient_features: dict) -> torch.Tensor:
-        """Convert tool results + patient features into a fixed-dim state vector.
-        TODO Saaheer: implement proper feature extraction."""
-        # Stub: return zeros — replace with real feature encoding
-        return torch.zeros(64)
+        """Convert tool results + patient features into a 64-dim state vector.
+
+        Layout (64 dims):
+          [0:5]   organism one-hot
+          [5:8]   phenotype one-hot
+          [8:12]  infection site one-hot
+          [12]    CrCl / 120 (normalized)
+          [13]    penicillin allergy flag
+          [14]    cephalosporin / sulfonamide allergy flag
+          [15:31] tool-already-called flags (16 tools)
+          [31:47] drug classification from tool results (16 slots, one per tool;
+                  1.0=S, 0.5=I, 0.0=R, -0.5=in-antibiogram-untested, 0.0=n/a)
+          [47:64] antibiogram presence flags (17 of the 25 tracked drugs, 64-47=17)
+        """
+        vec = torch.zeros(STATE_DIM)
+
+        # ── Organism one-hot [0:5] ──────────────────────────────────────────
+        organisms = ["K. pneumoniae", "E. coli", "P. aeruginosa", "S. aureus", "Enterococcus"]
+        org = patient_features.get("organism", "")
+        for i, o in enumerate(organisms):
+            if o.lower() in org.lower():
+                vec[i] = 1.0
+                break
+
+        # ── Phenotype one-hot [5:8] ─────────────────────────────────────────
+        phenotypes = ["susceptible", "resistant", "MDR"]
+        pheno = patient_features.get("phenotype", "").lower()
+        for i, p in enumerate(phenotypes):
+            if p.lower() == pheno:
+                vec[5 + i] = 1.0
+                break
+
+        # ── Infection site one-hot [8:12] ───────────────────────────────────
+        sites = ["bacteremia", "UTI", "pneumonia", "intra-abdominal"]
+        site = patient_features.get("infection_site", "")
+        for i, s in enumerate(sites):
+            if s.lower() == site.lower():
+                vec[8 + i] = 1.0
+                break
+
+        # ── CrCl normalized [12] ────────────────────────────────────────────
+        crcl = float(patient_features.get("creatinine_clearance", 60.0))
+        vec[12] = min(crcl / 120.0, 1.0)
+
+        # ── Allergy flags [13:15] ───────────────────────────────────────────
+        allergies = [a.lower() for a in patient_features.get("allergies", [])]
+        vec[13] = 1.0 if any("penicillin" in a for a in allergies) else 0.0
+        vec[14] = 1.0 if any(a in ("cephalosporin", "sulfonamide", "sulfa") for a in allergies) else 0.0
+
+        # ── Parse drug classifications out of free-text tool results ────────
+        drug_class: dict[str, float] = {}  # drug_name -> 1.0/0.5/0.0
+        for result in tool_results:
+            rl = result.lower()
+            # Match pattern: "<drug> mic = <val> mg/l -> <label>"
+            # or "resistance interpretation for <drug> against..."
+            drug_hit = None
+            for drug in _ANTIBIOGRAM_DRUGS:
+                if drug in rl and ("mic" in rl or "susceptib" in rl or "resistant" in rl):
+                    drug_hit = drug
+                    break
+            if drug_hit:
+                if "susceptible" in rl:
+                    drug_class[drug_hit] = 1.0
+                elif "intermediate" in rl:
+                    drug_class[drug_hit] = 0.5
+                elif "resistant" in rl:
+                    drug_class[drug_hit] = 0.0
+
+        results_joined = " ".join(tool_results).lower()
+
+        # ── Tool-called flags [15:31] and classification slots [31:47] ──────
+        # Tools are in AVAILABLE_TOOLS order (up to 16 slots).
+        antibiogram = {k.lower(): v for k, v in patient_features.get("antibiogram", {}).items()}
+
+        for i, tool_key in enumerate(AVAILABLE_TOOLS[:16]):
+            slot_called = 15 + i
+            slot_class = 31 + i
+
+            if tool_key.startswith("interpret_resistance_"):
+                drug = tool_key[len("interpret_resistance_"):]
+                if drug in drug_class:
+                    vec[slot_called] = 1.0
+                    vec[slot_class] = drug_class[drug]
+                elif drug in antibiogram:
+                    vec[slot_class] = -0.5  # present but not yet interpreted
+
+            elif tool_key.startswith("check_guideline_"):
+                syndrome = tool_key[len("check_guideline_"):]
+                if "idsa recommendation" in results_joined or "first-line" in results_joined:
+                    if syndrome.lower() in results_joined:
+                        vec[slot_called] = 1.0
+
+            elif tool_key == "assess_patient_factors":
+                if "renal function" in results_joined or "crcl" in results_joined:
+                    vec[slot_called] = 1.0
+
+        # ── Antibiogram presence flags [47:64] (17 drugs) ───────────────────
+        for j, drug in enumerate(_ANTIBIOGRAM_DRUGS[:17]):
+            if drug in antibiogram:
+                vec[47 + j] = 1.0
+
+        return vec
 
 
-def enrich_observation(base_obs_text: str, world_model: AMRWorldModel,
-                        tool_results: list[str], patient_features: dict,
-                        available_tools: list[str]) -> str:
+def enrich_observation(
+    base_obs_text: str,
+    world_model: AMRWorldModel,
+    tool_results: list[str],
+    patient_features: dict,
+    available_tools: list[str],
+) -> str:
     """Append JEPA information gain predictions to the observation text."""
     known_state = world_model.encode_known_state(tool_results, patient_features)
     rankings = world_model.get_test_rankings(known_state, available_tools)
 
-    lines = ["", "PREDICTED INFORMATION GAIN (run highest first):"]
-    for tool, score in rankings:
+    lines = ["", "PREDICTED INFORMATION GAIN (highest = most useful to run next):"]
+    for tool, score in rankings[:5]:  # show top 5 only
         lines.append(f"  - {tool}: {score:.2f}")
 
     return base_obs_text + "\n".join(lines)

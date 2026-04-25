@@ -17,8 +17,20 @@ from pathlib import Path
 from typing import Any
 
 from .models import AMRAction, AMRObservation, PatientCase
+from .world_model import AMRWorldModel, AVAILABLE_TOOLS, enrich_observation
 
 logger = logging.getLogger(__name__)
+
+# Shared world model instance (random init; updated during training)
+_world_model: AMRWorldModel | None = None
+
+
+def _get_world_model() -> AMRWorldModel:
+    global _world_model
+    if _world_model is None:
+        _world_model = AMRWorldModel()
+        _world_model.eval()
+    return _world_model
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -99,7 +111,7 @@ def interpret_resistance(drug: str, patient: PatientCase, eucast) -> str:
     labels = {"S": "Susceptible", "I": "Intermediate", "R": "Resistant", "UNKNOWN": "UNKNOWN (no breakpoint)"}
     label = labels.get(classification, classification)
     return (
-        f"{drug.capitalize()} MIC = {mic} mg/L → EUCAST classification: {label} "
+        f"{drug.capitalize()} MIC = {mic} mg/L -> EUCAST classification: {label} "
         f"(organism: {patient.organism})."
     )
 
@@ -439,11 +451,31 @@ class AMREnvironment:
                 f"Available antibiogram data: {list(p.antibiogram.keys())}.\n"
             )
 
+        # JEPA world model: predict which tools are most informative next
+        world_model_rankings = ""
+        if not self.done and p.antibiogram:
+            try:
+                wm = _get_world_model()
+                patient_features = p.__dict__
+                # Only suggest tools relevant to drugs in this patient's antibiogram
+                abx_keys = {k.lower() for k in p.antibiogram}
+                relevant = [
+                    t for t in AVAILABLE_TOOLS
+                    if not t.startswith("interpret_resistance_")
+                    or t[len("interpret_resistance_"):] in abx_keys
+                ]
+                enriched = enrich_observation(
+                    "", wm, list(self.tool_results), patient_features, relevant
+                )
+                world_model_rankings = enriched.strip()
+            except Exception as exc:
+                logger.debug("World model enrichment skipped: %s", exc)
+
         return AMRObservation(
             patient_text=patient_text,
             tool_results=list(self.tool_results),
             budget_remaining=self.budget_remaining,
-            world_model_rankings="",   # Saaheer's enrich_observation() fills this in
+            world_model_rankings=world_model_rankings,
             done=self.done,
         )
 
