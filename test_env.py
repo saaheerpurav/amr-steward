@@ -29,6 +29,9 @@ def make_demo_env() -> AMREnvironment:
         done=False,
         patient=env.current_patient.__dict__.copy(),
         tool_results=[],
+        called_tools=[],
+        dense_accum=0.0,
+        tool_history=[],
     )
     return env
 

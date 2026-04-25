@@ -70,7 +70,7 @@ All components are pure functions — no LLM judge. The terminal reward is RLVR-
 | **R2** Guideline concordance | Oracle input | Is this the IDSA-recommended agent? (1.0 = first-line, 0.5 = alternative) |
 | **R3** Stewardship | Oracle input | Is this the *narrowest* effective drug? Penalizes unnecessary broad-spectrum use |
 | **R4** Dose correctness | Oracle input | Is the dose appropriate for this patient's renal function? |
-| **R5** Tool efficiency | Process signal | `(unique_tool_types / budget_spent) × (budget_remaining / budget_total)` — no keywords, no text parsing |
+| **R5** Tool efficiency | Process signal | `(unique_tool_types / budget_spent) × (budget_remaining / budget_total)` — counted from `AMRState.tool_history` (structured `{tool, arg}` log), no text parsing |
 | **R6** Output format | Format signal | Clean single COMMIT line (1.0 for ≤3 lines, decays 0.05/line after) |
 
 **Quality ratio** (RLVR oracle): for each patient, `compute_optimal_prescription()` brute-forces all antibiogram drugs to find the maximum achievable process score. The agent is then scored relative to that optimum:
@@ -99,7 +99,7 @@ PREDICTED INFORMATION GAIN:
 - interpret_resistance_meropenem: 0.0388
 ```
 
-The world model is pre-trained on 5,201 synthetic (state, tool, next-state) triples generated from the same patient distribution used in RL training. The predictor learns to estimate `||f(s, tool) - s||` — how much each tool call changes the known state representation — using an EMA target encoder for stable targets (I-JEPA style).
+The world model is pre-trained on synthetic (state, tool, next-state) triples generated from 500 seeded episodes drawn from the same patient distribution used in RL training. The predictor is trained to map `(context_encoder(s_before), tool) → target_encoder(s_after)` using MSE against an EMA-stabilised target encoder (I-JEPA pattern). At inference, information gain for tool `t` is measured as `||predictor(context(s), t) − target_encoder(s)|| / √d_repr` — the L2 distance in target-encoder space, so the training objective and the serving metric are computed in the same embedding geometry.
 
 **Architecture:**
 - Context encoder: 64 → 256 → 128 (ReLU MLP)
@@ -107,11 +107,11 @@ The world model is pre-trained on 5,201 synthetic (state, tool, next-state) trip
 - Target encoder: EMA copy of context encoder (decay = 0.99)
 - State vector: 64-dim handcrafted features (organism, phenotype, site, CrCl, allergy flags, tool-called flags, antibiogram presence)
 
-**Information gain** is measured as `||pred_next - ctx|| / sqrt(repr_dim)` (L2 norm of the predicted state delta, normalized by dimension) — tools that are expected to shift the state representation further are ranked higher.
+**Information gain** is measured as `||pred_next − target(s)|| / √repr_dim` — both `pred_next` and the anchor `target(s)` live in target-encoder space, matching the training objective. Tools expected to shift the state representation further in that space are ranked higher.
 
-Weights are pre-trained locally (`jepa_pretrain.py`) on 5,201 synthetic triples and committed as `jepa_weights.pt`. The environment auto-loads them at startup.
+Weights are pre-trained locally (`jepa_pretrain.py`, seeded for reproducibility) and committed as `jepa_weights.pt`. The environment auto-loads them at startup.
 
-**Dense shaping**: INVESTIGATE steps earn `+0.04` reward for each novel tool type called, hard-capped at `+0.20` total so the terminal quality_ratio always dominates. This prevents the agent from learning to commit blindly while still providing gradient signal during the investigation phase.
+**Dense shaping**: INVESTIGATE steps earn `+0.04` reward for each unique `(tool, argument)` pair called, hard-capped at `+0.20` total so the terminal quality_ratio always dominates. This prevents the agent from learning to commit blindly while still providing gradient signal during the investigation phase.
 
 ---
 
@@ -233,10 +233,10 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 
 | Criterion | Weight | Evidence |
 |---|---|---|
-| **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Joint Embedding Predictive Architecture, Meta AI) pre-trained on 5,201 synthetic clinical episodes guides investigation strategy. Quality-ratio oracle brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 stewardship gated on R1 — three independent anti-hacking layers. |
+| **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Joint Embedding Predictive Architecture, Meta AI) pre-trained on synthetic (state, tool, next-state) triples from 500 seeded episodes guides investigation strategy. Quality-ratio oracle brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 stewardship gated on R1 — three independent anti-hacking layers. |
 | **Storytelling** | 30% | 1.27 million people die from antimicrobial resistance per year — more than HIV or malaria. The before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward 0.12, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.91). Wrong drug → patient dies. Right drug → patient lives. |
 | **Showing Improvement** | 20% | GRPO training on Qwen3-0.6B across three curriculum stages (T4 GPU). Stage 1: 0.22 → 0.39. Stage 2: 0.27 → 0.38. Stage 3: 0.25 → 0.29. Reward holds consistent as case complexity increases from susceptible organisms to MDR + renal failure + allergy constraints. Training curve committed as `reward_curves.png`. |
-| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at different timescales. Dense shaping (+0.04/novel tool, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6), all pure functions — no LLM judge anywhere in the pipeline. |
+| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at different timescales. Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured tool-call log, not text heuristics. |
 
 ---
 

@@ -250,11 +250,15 @@ if __name__ == "__main__":
     print("AMR-Steward JEPA Pre-training")
     print(f"Output: {WEIGHTS_PATH}\n")
 
+    # Fixed seed → reproducible triple count and weights
+    random.seed(42)
+    torch.manual_seed(42)
+
     model = AMRWorldModel()
 
     print("Generating synthetic rollouts...")
     triples = generate_triples(model, n_episodes=500)
-    print(f"Collected {len(triples)} (s_before, tool, s_after) triples.\n")
+    print(f"Collected {len(triples)} (s_before, tool, s_after) triples from 500 seeded episodes.\n")
 
     print("Training JEPA predictor...")
     train(model, triples, n_epochs=25)

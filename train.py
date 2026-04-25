@@ -28,6 +28,7 @@ from env.models import PatientCase
 from env.reward import (
     parse_prescription_from_text,
     parse_tool_calls_from_text,
+    count_unique_tool_types,
     R5_tool_efficiency,
     R6_format,
 )
@@ -250,12 +251,23 @@ def _score_completion_with_env(
     return cumulative
 
 
-def _extract_tool_type(tool_call_text: str) -> str:
-    """Extract the bare tool name from a parsed INVESTIGATE line."""
-    try:
-        return json.loads(tool_call_text.strip()).get("tool", tool_call_text)
-    except Exception:
-        return tool_call_text.split()[0] if tool_call_text.split() else "unknown"
+def _parse_tool_calls_to_history(text: str) -> list[dict]:
+    """Parse INVESTIGATE lines into structured [{tool, arg}, ...] entries.
+
+    Uses the same structured format as AMRState.tool_history, so training Head 2
+    and the env terminal both call count_unique_tool_types on identically-shaped data.
+    Malformed / non-JSON INVESTIGATE lines are silently skipped.
+    """
+    history: list[dict] = []
+    for raw in parse_tool_calls_from_text(text):
+        try:
+            payload = json.loads(raw.strip())
+            tool = payload.get("tool", "")
+            if tool:
+                history.append({"tool": tool, "arg": payload.get("arg", "")})
+        except (json.JSONDecodeError, AttributeError, ValueError):
+            continue
+    return history
 
 
 def make_format_reward_fn():
@@ -266,16 +278,23 @@ def make_format_reward_fn():
 
 
 def make_process_reward_fn():
-    """Head 2: investigation quality — diverse tool use with budget remaining."""
+    """Head 2: investigation quality — diverse tool use with budget remaining.
+
+    Parses completions into the same structured [{tool, arg}, ...] format as
+    AMRState.tool_history, then calls count_unique_tool_types — the identical
+    function used by the env terminal in compute_total_reward. This eliminates
+    the prior split-brain where Head 2 and the env terminal computed R5 from
+    different data sources with different parsing logic.
+    """
     def fn(prompts, completions, patient_json, curriculum_level=None, **kwargs) -> list[float]:
         rewards: list[float] = []
         levels = list(curriculum_level) if curriculum_level is not None else [1] * len(completions)
         for completion, level in zip(completions, levels):
             text = _completion_to_text(completion)
-            tool_calls = parse_tool_calls_from_text(text)
+            history = _parse_tool_calls_to_history(text)
             budget_total = _BUDGET_BY_LEVEL.get(int(level), 5)
-            unique_types = len({_extract_tool_type(tc) for tc in tool_calls})
-            budget_spent = len(tool_calls)
+            unique_types = count_unique_tool_types(history)
+            budget_spent = len(history)  # only valid structured tool calls count
             budget_remaining = max(0, budget_total - budget_spent)
             rewards.append(float(R5_tool_efficiency(unique_types, budget_spent, budget_remaining, budget_total)))
         return rewards

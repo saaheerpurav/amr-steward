@@ -155,6 +155,11 @@ class AMRState(State):
     tool_results: List[str] = Field(default_factory=list)
     called_tools: List[str] = Field(default_factory=list)
     dense_accum: float = Field(default=0.0)
+    tool_history: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Structured log of INVESTIGATE calls: [{tool, arg}, ...]. "
+                    "Single source of truth for R5 unique_tool_types — no text parsing.",
+    )
     last_reward_breakdown: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Per-component reward breakdown from the last COMMIT.",

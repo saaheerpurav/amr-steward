@@ -90,14 +90,24 @@ class AMRWorldModel(nn.Module):
         return pred_repr, tgt_repr
 
     def predict_information_gain(self, known_state: torch.Tensor, tool_name: str) -> float:
-        """Returns estimated information gain (0–1) for running a specific tool.
-        Uses L2 norm of predicted state delta, normalized by sqrt(repr_dim)."""
-        tool_idx = torch.tensor(TOOL_TO_IDX.get(tool_name, 0))
+        """Information gain in target-encoder space.
+
+        The predictor was trained to map (context_encoder(s_before), tool) →
+        target_encoder(s_after). At inference, information gain is the L2 distance
+        between that prediction and target_encoder(s_before), so both operands live
+        in the same target-encoder embedding space (paper-faithful state delta).
+
+        Returns 0.0 for unknown tool names rather than silently mapping to index 0.
+        """
+        if tool_name not in TOOL_TO_IDX:
+            return 0.0  # fail closed — do not silently alias to index 0
+        tool_idx = torch.tensor(TOOL_TO_IDX[tool_name])
         with torch.no_grad():
             ctx_repr = self.context_encoder(known_state.unsqueeze(0))
+            tgt_anchor = self.target_encoder(known_state.unsqueeze(0))
             tool_onehot = F.one_hot(tool_idx.unsqueeze(0), num_classes=NUM_TOOLS).float()
             pred_next = self.predictor(torch.cat([ctx_repr, tool_onehot], dim=-1))
-            gain = torch.norm(pred_next - ctx_repr, dim=-1).item() / (REPR_DIM ** 0.5)
+            gain = torch.norm(pred_next - tgt_anchor, dim=-1).item() / (REPR_DIM ** 0.5)
         return float(max(0.0, min(1.0, gain)))
 
     def save_weights(self, path: Path = WEIGHTS_PATH) -> None:

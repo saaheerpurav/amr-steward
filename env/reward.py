@@ -304,6 +304,18 @@ def R5_reasoning_grounding(tool_call_history: list[str], prescription: dict | No
     return min(score, 1.0)
 
 
+def count_unique_tool_types(tool_history: list[dict]) -> int:
+    """Single source of truth for R5's unique_tool_types.
+
+    Operates on the structured {tool, arg} log stored in AMRState.tool_history.
+    No text parsing, no heuristics — counts distinct tool *names* (not tool+arg
+    pairs), so two resistance checks on two different drugs count as one type.
+    """
+    if not tool_history:
+        return 0
+    return len({h.get("tool", "") for h in tool_history if h.get("tool")})
+
+
 def R5_tool_efficiency(unique_tool_types: int, budget_spent: int, budget_remaining: int, budget_total: int) -> float:
     """R5 (structured): tool diversity × budget economy.
     0.0 if no investigation; higher when diverse tools were used with budget to spare."""
@@ -382,6 +394,7 @@ def compute_total_reward(
     drug_properties: dict | None = None,
     budget_remaining: int | None = None,
     budget_total: int = 5,
+    tool_history: list[dict] | None = None,
 ) -> tuple[float, dict]:
     """Compute total reward via quality_ratio against optimal prescription.
 
@@ -389,6 +402,9 @@ def compute_total_reward(
     R5             = tool efficiency (diverse investigation × budget economy)
     total          = 0.9 * quality_ratio + 0.1 * R5
 
+    tool_history:     structured [{tool, arg}, ...] log from AMRState — preferred
+                      source for R5 unique_tool_types (no text parsing). Falls back
+                      to _infer_tool_type on tool_call_history for legacy callers.
     budget_remaining: steps left when COMMIT was issued (passed from env).
                       When None (fallback), inferred from tool_call_history length.
     budget_total:     episode budget at reset (default 5 for level 1).
@@ -414,11 +430,15 @@ def compute_total_reward(
     r3 = R3_stewardship(prescription, patient, eucast, r1)
     r4 = R4_dose_correctness(prescription, patient, drug_properties)
 
-    # R5: structured tool-efficiency score (replaces keyword heuristic)
-    unique_types = (
-        len({_infer_tool_type(r) for r in tool_call_history} - {"unknown"})
-        if tool_call_history else 0
-    )
+    # R5: unique tool types from structured history (preferred) or text fallback
+    if tool_history is not None:
+        unique_types = count_unique_tool_types(tool_history)
+    else:
+        # Legacy fallback: infer tool type from free-text result strings
+        unique_types = (
+            len({_infer_tool_type(r) for r in tool_call_history} - {"unknown"})
+            if tool_call_history else 0
+        )
     if budget_remaining is not None:
         budget_spent = max(0, budget_total - budget_remaining)
         effective_remaining = budget_remaining

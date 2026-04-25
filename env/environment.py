@@ -287,6 +287,9 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
             done=False,
             patient=self.current_patient.__dict__.copy(),
             tool_results=[],
+            called_tools=[],
+            dense_accum=0.0,
+            tool_history=[],
             last_reward_breakdown=None,
         )
 
@@ -362,7 +365,7 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         self._state.tool_results.append(result)
         self._state.budget_remaining -= 1
 
-        # Dense shaping: reward novel tool types, capped to keep terminal dominant
+        # Dense shaping: reward novel (tool, arg) pairs, capped to keep terminal dominant
         tool_key = f"{action.tool_name}:{action.tool_arg or ''}"
         if tool_key not in self._called_tools:
             inc = min(self._DENSE_NOVEL_TOOL, self._DENSE_CAP - self._dense_accum)
@@ -371,6 +374,13 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         else:
             step_reward = 0.0
         self._called_tools.add(tool_key)
+
+        # Structured tool log — single source of truth for R5 unique_tool_types
+        self._state.tool_history.append({
+            "tool": action.tool_name or "unknown",
+            "arg": action.tool_arg or "",
+        })
+
         # Persist into state so it survives openenv-core serialization
         self._state.called_tools = list(self._called_tools)
         self._state.dense_accum = self._dense_accum
@@ -402,6 +412,7 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
                 drug_properties=_get_drug_properties(),
                 budget_remaining=self._state.budget_remaining,
                 budget_total=BUDGET_BY_LEVEL[self._state.curriculum_level],
+                tool_history=list(self._state.tool_history),
             )
             self._state.last_reward_breakdown = breakdown
             logger.info(
