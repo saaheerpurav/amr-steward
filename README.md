@@ -67,9 +67,10 @@ All five components are pure functions — no LLM judge.
 | **R2** Guideline concordance | 25% | Is this the IDSA-recommended agent? (1.0 = first-line, 0.5 = alternative) |
 | **R3** Stewardship | 15% | Is this the *narrowest* effective drug? Penalizes unnecessary broad-spectrum use |
 | **R4** Dose correctness | 10% | Is the dose appropriate for this patient's renal function? |
-| **R5** Reasoning grounding | 10% | Did the agent investigate before committing? (tool call history check) |
+| **R5** Reasoning grounding | 5% | Did the agent investigate before committing? (tool call history check) |
+| **R6** Output format | 5% | Is the output a clean single COMMIT line? Rewards concise, parseable output |
 
-**Total reward** = 0.40·R1 + 0.25·R2 + 0.15·R3 + 0.10·R4 + 0.10·R5
+**Training reward** = 0.40·R1 + 0.25·R2 + 0.15·R3 + 0.10·R4 + 0.05·R5 + 0.05·R6
 
 ---
 
@@ -81,12 +82,23 @@ Before committing, the world model predicts which tool call would provide the mo
 
 ```
 PREDICTED INFORMATION GAIN:
-- interpret_resistance_meropenem: 0.87
-- check_guideline: 0.64
-- assess_patient_factors: 0.41
+- check_guideline_UTI: 0.1287
+- assess_patient_factors: 0.0614
+- interpret_resistance_ceftriaxone: 0.0599
+- interpret_resistance_meropenem: 0.0388
 ```
 
-The world model architecture is implemented and wired into every observation. Pre-training on synthetic episodes is planned as a next step — currently the model is randomly initialised, so rankings reflect architectural priors rather than learned information gain.
+The world model is pre-trained on 5,201 synthetic (state, tool, next-state) triples generated from the same patient distribution used in RL training. The predictor learns to estimate `||f(s, tool) - s||` — how much each tool call changes the known state representation — using an EMA target encoder for stable targets (I-JEPA style).
+
+**Architecture:**
+- Context encoder: 64 → 256 → 128 (ReLU MLP)
+- Predictor: 128 + 16 (tool one-hot) → 256 → 128 (ReLU MLP)
+- Target encoder: EMA copy of context encoder (decay = 0.99)
+- State vector: 64-dim handcrafted features (organism, phenotype, site, CrCl, allergy flags, tool-called flags, antibiogram presence)
+
+**Information gain** is measured as `1 - cosine_similarity(predicted_next_repr, current_repr)` — tools that are expected to shift the state representation more are ranked higher.
+
+Weights are pre-trained locally (`jepa_pretrain.py`) and committed as `jepa_weights.pt`. The environment auto-loads them at startup.
 
 ---
 

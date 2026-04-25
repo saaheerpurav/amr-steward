@@ -327,6 +327,18 @@ def parse_prescription_from_text(model_output: str) -> dict | None:
     return None
 
 
+def R6_format(completion_text: str) -> float:
+    """R6: Rewards clean, concise output ending with a single COMMIT line.
+    1.0 for ≤3 lines total, decays 0.05 per extra line, 0.0 if no COMMIT found."""
+    lines = [l.strip() for l in completion_text.strip().splitlines() if l.strip()]
+    has_commit = any(re.match(r"COMMIT\s*:", l, re.IGNORECASE) for l in lines)
+    if not has_commit:
+        return 0.0
+    if len(lines) <= 3:
+        return 1.0
+    return max(0.0, 1.0 - 0.05 * (len(lines) - 3))
+
+
 def parse_tool_calls_from_text(model_output: str) -> list[str]:
     """Extract INVESTIGATE calls from model-generated text."""
     return re.findall(r"INVESTIGATE[:\s]+([^\n]+)", model_output, re.IGNORECASE)

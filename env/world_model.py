@@ -7,6 +7,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from copy import deepcopy
+from pathlib import Path
+
+WEIGHTS_PATH = Path(__file__).parent.parent / "jepa_weights.pt"
 
 # Compound tool+arg keys the world model reasons over.
 # Format: <tool_name>_<arg> for resistance tools, bare name for others.
@@ -87,12 +90,25 @@ class AMRWorldModel(nn.Module):
         return pred_repr, tgt_repr
 
     def predict_information_gain(self, known_state: torch.Tensor, tool_name: str) -> float:
-        """Returns estimated information gain (0–1) for running a specific tool."""
+        """Returns estimated information gain (0–1) for running a specific tool.
+        Measures how much the predicted post-tool repr diverges from the current repr."""
         tool_idx = torch.tensor(TOOL_TO_IDX.get(tool_name, 0))
-        pred_repr, tgt_repr = self.forward(known_state.unsqueeze(0), tool_idx.unsqueeze(0))
-        gain = 1.0 - F.cosine_similarity(pred_repr, tgt_repr, dim=-1).item()
-        # cosine similarity is in [-1, 1]; clip to [0, 1]
+        with torch.no_grad():
+            ctx_repr = self.context_encoder(known_state.unsqueeze(0))
+            tool_onehot = F.one_hot(tool_idx.unsqueeze(0), num_classes=NUM_TOOLS).float()
+            pred_next = self.predictor(torch.cat([ctx_repr, tool_onehot], dim=-1))
+            gain = 1.0 - F.cosine_similarity(pred_next, ctx_repr, dim=-1).item()
         return float(max(0.0, min(1.0, gain)))
+
+    def save_weights(self, path: Path = WEIGHTS_PATH) -> None:
+        torch.save(self.state_dict(), path)
+
+    @classmethod
+    def load_from_weights(cls, path: Path = WEIGHTS_PATH) -> "AMRWorldModel":
+        model = cls()
+        model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
+        model.eval()
+        return model
 
     def get_test_rankings(self, known_state: torch.Tensor, available_tools: list[str]) -> list[tuple[str, float]]:
         """Returns tools sorted by predicted information gain (highest first)."""

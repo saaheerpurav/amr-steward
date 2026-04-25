@@ -22,8 +22,8 @@ env/          # only if used as a venv dir; note our env/ package is tracked sep
 .ipynb_checkpoints/
 
 # ── ML artefacts ──────────────────────────────────────────────────────────────
-*.pt
-*.pth
+# jepa_weights.pt is intentionally tracked (pre-trained JEPA world model)
+checkpoints/
 *.safetensors
 *.bin
 outputs/

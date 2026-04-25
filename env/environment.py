@@ -24,7 +24,7 @@ from typing import Any, Optional
 from openenv.core.env_server import Environment
 
 from .models import AMRAction, AMRObservation, AMRState, PatientCase
-from .world_model import AMRWorldModel, AVAILABLE_TOOLS, enrich_observation
+from .world_model import AMRWorldModel, AVAILABLE_TOOLS, WEIGHTS_PATH, enrich_observation
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +89,13 @@ def _get_eucast():
 def _get_world_model() -> AMRWorldModel:
     global _world_model
     if _world_model is None:
-        _world_model = AMRWorldModel()
-        _world_model.eval()
+        if WEIGHTS_PATH.exists():
+            _world_model = AMRWorldModel.load_from_weights(WEIGHTS_PATH)
+            logger.info("JEPA world model loaded from %s", WEIGHTS_PATH)
+        else:
+            _world_model = AMRWorldModel()
+            _world_model.eval()
+            logger.warning("jepa_weights.pt not found — world model is randomly initialised. Run jepa_pretrain.py.")
     return _world_model
 
 

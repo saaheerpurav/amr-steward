@@ -32,6 +32,7 @@ from env.reward import (
     compute_total_reward,
     parse_prescription_from_text,
     parse_tool_calls_from_text,
+    R6_format,
 )
 
 
@@ -48,24 +49,17 @@ CURRICULUM = [
     (256, 3),
 ]
 
-SYSTEM_PROMPT = """You are an antimicrobial stewardship AI.
-Your job is to prescribe the narrowest-spectrum antibiotic that is:
-1. Microbiologically active
-2. Guideline concordant
-3. Correctly dosed for the patient's renal function
+SYSTEM_PROMPT = """You are an antimicrobial stewardship AI. Prescribe the narrowest effective antibiotic.
 
-Use the available investigation tools before you commit when needed.
-
-TOOLS:
+INVESTIGATE tools (optional, costs 1 budget each):
   INVESTIGATE: {"tool": "interpret_resistance", "arg": "<drug>"}
   INVESTIGATE: {"tool": "check_guideline", "arg": "<syndrome>"}
   INVESTIGATE: {"tool": "assess_patient_factors"}
 
-FINAL ANSWER FORMAT:
-  COMMIT: {"drug": "...", "dose": "...", "duration": "...", "justification": "..."}
+When ready, output EXACTLY this one line and stop:
+  COMMIT: {"drug": "<name>", "dose": "<dose>", "duration": "<days>", "justification": "<one sentence>"}
 
-Do not output anything after the COMMIT line.
-"""
+Do not add any text before or after the COMMIT line."""
 
 _IDSA = _load_idsa()
 _DRUG_PROPS = _load_drug_properties()
@@ -224,6 +218,9 @@ def make_reward_fn():
                 idsa=_IDSA,
                 drug_properties=_DRUG_PROPS,
             )
+            r6 = R6_format(completion_text)
+            total = min(1.0, total + 0.05 * r6)
+            breakdown["R6_format"] = r6
             rewards.append(float(total))
             breakdowns.append(breakdown)
 
@@ -234,6 +231,7 @@ def make_reward_fn():
                 "R3_stewardship",
                 "R4_dose",
                 "R5_reasoning",
+                "R6_format",
                 "total",
             ):
                 log_metric(metric, sum(b[metric] for b in breakdowns) / len(breakdowns))
