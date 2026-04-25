@@ -96,8 +96,8 @@
     "class": "cephalosporin_4th_gen",
     "standard_dose": "2g IV q8h",
     "renal_adjustments": {
-      "CrCl_above_60": "2g IV q8h",
-      "CrCl_30_60": "2g IV q12h",
+      "CrCl_above_50": "2g IV q8h",
+      "CrCl_30_50": "2g IV q12h",
       "CrCl_11_29": "2g IV q24h",
       "CrCl_under_11": "1g IV q24h"
     },
@@ -153,8 +153,8 @@
     "standard_dose": "8-10mg/kg/day TMP component divided q8-12h",
     "renal_adjustments": {
       "CrCl_above_30": "usual dose",
-      "CrCl_15_30": "50% usual dose",
-      "CrCl_under_15": "avoid or use specialist dosing"
+      "CrCl_10_30": "50% usual dose",
+      "CrCl_under_10": "avoid or use specialist dosing"
     },
     "allergy_flags": ["sulfonamide"],
     "spectrum": ["urinary_gram_negative", "some_MRSA"],
@@ -234,8 +234,8 @@
     "standard_dose": "3g IV q6h",
     "renal_adjustments": {
       "CrCl_above_30": "3g IV q6h",
-      "CrCl_15_30": "3g IV q12h",
-      "CrCl_under_15": "3g IV q24h"
+      "CrCl_10_30": "3g IV q12h",
+      "CrCl_under_10": "3g IV q24h"
     },
     "allergy_flags": ["penicillin"],
     "spectrum": ["gram_positive_non_MRSA", "gram_negative_susceptible", "anaerobes", "Acinetobacter"],
@@ -286,8 +286,8 @@
     "renal_adjustments": {
       "CrCl_above_50": "4g IV q8h",
       "CrCl_30_50": "2g IV q8h",
-      "CrCl_15_30": "2g IV q12h",
-      "CrCl_under_15": "1g IV q12h"
+      "CrCl_10_30": "2g IV q12h",
+      "CrCl_under_10": "1g IV q12h"
     },
     "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
     "spectrum": ["gram_negative_KPC", "CRE_KPC"],
@@ -312,10 +312,10 @@
     "class": "siderophore_cephalosporin",
     "standard_dose": "2g IV q8h (3-hour infusion)",
     "renal_adjustments": {
-      "CrCl_above_60": "2g IV q8h",
-      "CrCl_30_60": "1.5g IV q8h",
-      "CrCl_15_30": "1g IV q8h",
-      "CrCl_under_15": "0.75g IV q8h"
+      "CrCl_above_50": "2g IV q8h",
+      "CrCl_30_50": "1.5g IV q8h",
+      "CrCl_10_30": "1g IV q8h",
+      "CrCl_under_10": "0.75g IV q8h"
     },
     "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
     "spectrum": ["MDR_gram_negative", "CRE", "MBL_producers", "XDR_P_aeruginosa", "Acinetobacter"],
@@ -328,8 +328,8 @@
     "renal_adjustments": {
       "CrCl_above_50": "3g IV q8h",
       "CrCl_30_50": "1.5g IV q8h",
-      "CrCl_15_30": "750mg IV q8h",
-      "CrCl_under_15": "375mg IV q8h (loading dose 750mg)"
+      "CrCl_10_30": "750mg IV q8h",
+      "CrCl_under_10": "375mg IV q8h (loading dose 750mg)"
     },
     "allergy_flags": ["cephalosporin", "penicillin_cross_reactivity_low_risk"],
     "spectrum": ["MDR_P_aeruginosa", "some_gram_negative"],
@@ -342,8 +342,8 @@
     "renal_adjustments": {
       "CrCl_above_50": "4g IV q8h",
       "CrCl_30_50": "2g IV q8h",
-      "CrCl_15_30": "2g IV q12h",
-      "CrCl_under_15": "1g IV q12h"
+      "CrCl_10_30": "2g IV q12h",
+      "CrCl_under_10": "1g IV q12h"
     },
     "allergy_flags": ["penicillin_cross_reactivity_low_risk"],
     "spectrum": ["CRE_KPC", "gram_negative_ESBL"],
