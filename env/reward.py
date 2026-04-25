@@ -48,7 +48,14 @@ def _get_idsa():
 
 
 def _normalize_drug(drug: str) -> str:
-    return drug.strip().lower().replace(" ", "-")
+    return str(drug).strip().lower().replace(" ", "-")
+
+
+def _safe_text(value: object) -> str:
+    """Convert arbitrary parsed model output into a normalized text field."""
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _organism_to_idsa_key(organism: str, phenotype: str) -> str:
@@ -195,7 +202,7 @@ def R4_dose_correctness(prescription: dict, patient: PatientCase, drug_propertie
     """R4: Is the dose correct for this patient's renal function?
     Returns 1.0 if correct, 0.5 if within one tier, 0.0 if wrong."""
     drug = _normalize_drug(prescription.get("drug", ""))
-    prescribed_dose = prescription.get("dose", "").lower().strip()
+    prescribed_dose = _safe_text(prescription.get("dose", "")).lower()
     crcl = patient.creatinine_clearance
     drug_props = drug_properties if drug_properties is not None else _get_drug_props()
 
