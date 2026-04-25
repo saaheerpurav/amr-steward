@@ -51,7 +51,7 @@ except Exception as exc:
 # spin up an isolated AMREnvironment per concurrent session, keyed by
 # episode_id. This fixes the "global env shared across requests" bug.
 
-MAX_CONCURRENT_ENVS = int(os.getenv("MAX_CONCURRENT_ENVS", "8"))
+MAX_CONCURRENT_ENVS = int(os.getenv("MAX_CONCURRENT_ENVS", "1"))
 
 app = create_app(
     AMREnvironment,
