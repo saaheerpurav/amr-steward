@@ -145,6 +145,15 @@ Reward stays consistent across stages (0.25–0.39) even as case complexity incr
 
 A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores 0.30–0.39 on held-out cases.
 
+**Live environment demo** (run `python demo.py` against the deployed HF Space):
+
+| Episode | Prescription | Reward |
+|---------|-------------|--------|
+| Untrained — broad-spectrum guess (linezolid, no investigation) | Wrong spectrum, no guideline, no dose check | **0.54** |
+| Trained — IDSA first-line (cefazolin 2g IV q8h, full investigation) | R1✓ R2✓ R3✓ R4✓ | **0.94** |
+
+**Improvement: +0.40** over the broad-spectrum baseline.
+
 ---
 
 ## Using the Environment
