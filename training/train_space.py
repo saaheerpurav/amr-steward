@@ -292,7 +292,7 @@ def train_stage(model, tokenizer, level, num_samples, stage_label, reward_fns):
         lr_scheduler_type="cosine",
         bf16=bf16,
         fp16=torch.cuda.is_available() and not bf16,
-        logging_steps=5,
+        logging_steps=1,
         save_steps=100,
         save_total_limit=1,
         report_to="none",
