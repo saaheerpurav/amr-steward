@@ -255,16 +255,27 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         seed: Optional[int] = None,
         episode_id: Optional[str] = None,
         curriculum_level: int = 1,
+        patient: Optional[PatientCase] = None,
         **kwargs: Any,
     ) -> AMRObservation:
-        """Start a fresh episode with a new patient."""
+        """Start a fresh episode with a new (or provided) patient.
+
+        Args:
+            patient: Optional pre-built PatientCase. When provided the random
+                     patient sampler is skipped — used by training rollout to
+                     replay completions against the exact same patient that was
+                     used to build the prompt.
+        """
         if curriculum_level not in BUDGET_BY_LEVEL:
             raise ValueError(f"curriculum_level must be 1, 2, or 3. Got: {curriculum_level}")
 
         if seed is not None:
             random.seed(seed)
 
-        self.current_patient = self._sample_patient(curriculum_level)
+        if patient is not None:
+            self.current_patient = patient
+        else:
+            self.current_patient = self._sample_patient(curriculum_level)
 
         self._dense_accum = 0.0
         self._called_tools = set()
@@ -379,6 +390,8 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
                 eucast=_get_eucast(),
                 idsa=_get_idsa(),
                 drug_properties=_get_drug_properties(),
+                budget_remaining=self._state.budget_remaining,
+                budget_total=BUDGET_BY_LEVEL[self._state.curriculum_level],
             )
             self._state.last_reward_breakdown = breakdown
             logger.info(

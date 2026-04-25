@@ -58,6 +58,34 @@ def _safe_text(value: object) -> str:
     return str(value).strip()
 
 
+def _infer_tool_type(text: str) -> str:
+    """Detect which tool produced a result string (env context) or is named in a JSON call line (training context).
+
+    Handles both shapes:
+      - Tool-call JSON from training completions: '{"tool": "interpret_resistance", "arg": "..."}'
+      - Tool result string from the live environment: "meropenem MIC = 2.0 mg/L -> EUCAST..."
+    """
+    stripped = text.strip()
+    # Training context: JSON line with a "tool" key
+    if '"tool"' in stripped:
+        try:
+            parsed = json.loads(stripped)
+            tool = parsed.get("tool", "")
+            if tool:
+                return tool
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    # Env context: pattern-match on result string content
+    rl = stripped.lower()
+    if "mic" in rl and any(kw in rl for kw in ("eucast", "susceptib", "resistant", "intermediate")):
+        return "interpret_resistance"
+    if any(kw in rl for kw in ("idsa recommendation", "first-line", "first_line", "alternatives:")):
+        return "check_guideline"
+    if any(kw in rl for kw in ("renal function", "crcl", "renal dosing")):
+        return "assess_patient_factors"
+    return "unknown"
+
+
 def _organism_to_idsa_key(organism: str, phenotype: str) -> str:
     """Map patient organism + phenotype to IDSA JSON key."""
     org_map = {
@@ -352,11 +380,18 @@ def compute_total_reward(
     eucast,
     idsa: dict | None = None,
     drug_properties: dict | None = None,
+    budget_remaining: int | None = None,
+    budget_total: int = 5,
 ) -> tuple[float, dict]:
     """Compute total reward via quality_ratio against optimal prescription.
 
     quality_ratio = agent_process_score / opt_score  (RLVR-verifiable)
-    total = 0.9 * quality_ratio + 0.1 * R5
+    R5             = tool efficiency (diverse investigation × budget economy)
+    total          = 0.9 * quality_ratio + 0.1 * R5
+
+    budget_remaining: steps left when COMMIT was issued (passed from env).
+                      When None (fallback), inferred from tool_call_history length.
+    budget_total:     episode budget at reset (default 5 for level 1).
 
     R0 is a hard safety gate: allergy conflict → 0.0 immediately.
     """
@@ -368,7 +403,7 @@ def compute_total_reward(
             "R2_guideline": 0.0,
             "R3_stewardship": 0.0,
             "R4_dose": 0.0,
-            "R5_reasoning": 0.0,
+            "R5_efficiency": 0.0,
             "quality_ratio": 0.0,
             "total": 0.0,
         }
@@ -378,7 +413,20 @@ def compute_total_reward(
     r2 = R2_guideline_concordance(prescription, patient, idsa)
     r3 = R3_stewardship(prescription, patient, eucast, r1)
     r4 = R4_dose_correctness(prescription, patient, drug_properties)
-    r5 = R5_reasoning_grounding(tool_call_history, prescription)
+
+    # R5: structured tool-efficiency score (replaces keyword heuristic)
+    unique_types = (
+        len({_infer_tool_type(r) for r in tool_call_history} - {"unknown"})
+        if tool_call_history else 0
+    )
+    if budget_remaining is not None:
+        budget_spent = max(0, budget_total - budget_remaining)
+        effective_remaining = budget_remaining
+    else:
+        # Fallback when called without env context (e.g. legacy callers)
+        budget_spent = len(tool_call_history)
+        effective_remaining = 0
+    r5 = R5_tool_efficiency(unique_types, budget_spent, effective_remaining, budget_total)
 
     opt_score = compute_optimal_prescription(patient, eucast, idsa, drug_properties)
     process_score = 0.40 * r1 + 0.25 * r2 + 0.15 * r3 + 0.10 * r4
@@ -391,7 +439,7 @@ def compute_total_reward(
         "R2_guideline": r2,
         "R3_stewardship": r3,
         "R4_dose": r4,
-        "R5_reasoning": r5,
+        "R5_efficiency": r5,
         "quality_ratio": quality_ratio,
         "total": total,
     }

@@ -93,11 +93,11 @@ def test_correct_prescription():
     bd = env.state.last_reward_breakdown
     assert bd["R1_activity"] == 1.0, "R1 should be 1.0"
     assert bd["R2_guideline"] >= 0.5, "R2 should be >= 0.5"
-    assert bd["R5_reasoning"] > 0.0, "R5 should be > 0"
+    assert bd["R5_efficiency"] > 0.0, "R5 should be > 0 — tools were called"
     assert obs.reward >= 0.5, "Total reward should be >= 0.5"
     print(PASS + f" CORRECT Rx reward={obs.reward}"
           f" | R1={bd['R1_activity']} R2={bd['R2_guideline']}"
-          f" R3={bd['R3_stewardship']} R4={bd['R4_dose']} R5={bd['R5_reasoning']}")
+          f" R3={bd['R3_stewardship']} R4={bd['R4_dose']} R5={bd['R5_efficiency']}")
 
 
 def test_wrong_prescription():
@@ -112,7 +112,7 @@ def test_wrong_prescription():
     bd = env.state.last_reward_breakdown
     assert bd["R1_activity"] == 0.0, "R1 must be 0 for resistant drug"
     assert bd["R3_stewardship"] == 0.0, "R3 must be 0 when R1 is 0"
-    assert bd["R5_reasoning"] == 0.0, "R5 must be 0 — no tools called"
+    assert bd["R5_efficiency"] == 0.0, "R5 must be 0 — no tools called"
     assert obs.reward < 0.4, "Wrong Rx should have low reward"
     print(PASS + f" WRONG Rx (meropenem/CRE) reward={obs.reward}"
           f" | R1={bd['R1_activity']} (expect 0.0)")

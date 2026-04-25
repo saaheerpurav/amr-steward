@@ -23,13 +23,9 @@ from datasets import Dataset
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data import eucast_parser as eucast
-from env import AMREnvironment
+from env import AMREnvironment, AMRAction
 from env.models import PatientCase
 from env.reward import (
-    _load_drug_properties,
-    _load_idsa,
-    compute_total_reward,
     parse_prescription_from_text,
     parse_tool_calls_from_text,
     R5_tool_efficiency,
@@ -62,8 +58,6 @@ When ready, output EXACTLY this one line and stop:
 
 Do not add any text before or after the COMMIT line."""
 
-_IDSA = _load_idsa()
-_DRUG_PROPS = _load_drug_properties()
 FAST_LANGUAGE_MODEL = None
 GRPO_CONFIG_CLS = None
 GRPO_TRAINER_CLS = None
@@ -179,6 +173,83 @@ def _patient_from_json(payload: str) -> PatientCase:
 _BUDGET_BY_LEVEL = {1: 5, 2: 4, 3: 3}
 
 
+def _parse_investigate_action(raw_line: str) -> tuple[str, str | None] | None:
+    """Parse a single INVESTIGATE payload into (tool_name, tool_arg).
+
+    Handles JSON format: '{"tool": "interpret_resistance", "arg": "meropenem"}'
+    Returns None if the line cannot be parsed into a valid tool call.
+    """
+    raw_line = raw_line.strip()
+    try:
+        parsed = json.loads(raw_line)
+        tool_name = parsed.get("tool")
+        if not isinstance(tool_name, str) or not tool_name:
+            return None
+        tool_arg = parsed.get("arg") or None
+        return tool_name, tool_arg
+    except (json.JSONDecodeError, AttributeError):
+        return None
+
+
+def _score_completion_with_env(
+    completion_text: str,
+    patient_payload: str,
+    level: int,
+) -> float:
+    """Replay the INVESTIGATE + COMMIT actions from a completion through a fresh
+    AMREnvironment instance seeded with the exact same patient used to build the
+    prompt.
+
+    Returns cumulative episode reward:
+        dense shaping (novel INVESTIGATE steps) + terminal COMMIT reward.
+
+    This is the multi-turn training signal: the env's budget enforcement, dense
+    shaping cap, allergy gate, and RLVR quality_ratio all fire exactly as they
+    would during real deployment.
+    """
+    patient = _patient_from_json(patient_payload)
+    env = AMREnvironment()
+    env.reset(curriculum_level=int(level), patient=patient)
+
+    cumulative = 0.0
+
+    # ── Replay INVESTIGATE actions in textual order ────────────────────────────
+    for raw_line in parse_tool_calls_from_text(completion_text):
+        if env._state.done:
+            break
+        parsed = _parse_investigate_action(raw_line)
+        if parsed is None:
+            continue
+        tool_name, tool_arg = parsed
+        try:
+            action = AMRAction(
+                action_type="INVESTIGATE",
+                tool_name=tool_name,
+                tool_arg=tool_arg,
+            )
+            obs = env.step(action)
+            if obs.reward is not None:
+                cumulative += obs.reward
+        except Exception:
+            # Malformed / out-of-vocabulary tool name — skip silently
+            continue
+
+    # ── Execute COMMIT if the episode is still open ────────────────────────────
+    if not env._state.done:
+        prescription = parse_prescription_from_text(completion_text)
+        if prescription:
+            try:
+                action = AMRAction(action_type="COMMIT", prescription=prescription)
+                obs = env.step(action)
+                if obs.reward is not None:
+                    cumulative += obs.reward
+            except Exception:
+                pass
+        # No COMMIT found → no terminal reward (natural penalty)
+
+    return cumulative
+
+
 def _extract_tool_type(tool_call_text: str) -> str:
     """Extract the bare tool name from a parsed INVESTIGATE line."""
     try:
@@ -212,26 +283,30 @@ def make_process_reward_fn():
 
 
 def make_terminal_reward_fn():
-    """Head 3: outcome quality ratio — agent prescription vs RLVR optimal."""
-    def fn(prompts, completions, patient_json, **kwargs) -> list[float]:
+    """Head 3: cumulative env reward — dense shaping + RLVR quality_ratio.
+
+    Replays the full completion through a fresh AMREnvironment using the exact
+    patient case that was baked into the prompt at dataset-build time.  This
+    makes the reward signal multi-turn: investigation steps earn dense rewards,
+    budget exhaustion is penalised, and the final COMMIT is scored via the
+    RLVR optimality ratio.  The env's allergy safety gate also fires here.
+    """
+    def fn(
+        prompts,
+        completions,
+        patient_json,
+        curriculum_level=None,
+        **kwargs,
+    ) -> list[float]:
+        levels = list(curriculum_level) if curriculum_level is not None else [1] * len(completions)
         rewards: list[float] = []
-        for completion, patient_payload in zip(completions, patient_json):
+        for completion, patient_payload, level in zip(completions, patient_json, levels):
             text = _completion_to_text(completion)
-            prescription = parse_prescription_from_text(text)
-            if prescription is None:
+            try:
+                reward = _score_completion_with_env(text, patient_payload, int(level))
+                rewards.append(float(reward))
+            except Exception:
                 rewards.append(0.0)
-                continue
-            patient = _patient_from_json(patient_payload)
-            tool_calls = parse_tool_calls_from_text(text)
-            total, _ = compute_total_reward(
-                prescription=prescription,
-                patient=patient,
-                tool_call_history=tool_calls,
-                eucast=eucast,
-                idsa=_IDSA,
-                drug_properties=_DRUG_PROPS,
-            )
-            rewards.append(float(total))
         return rewards
     return fn
 
