@@ -87,8 +87,12 @@ def _organism_to_idsa_key(organism: str, phenotype: str) -> str:
         return "E. coli (ESBL)"
     if org == "E. coli" and pheno_label == "susceptible":
         return "E. coli (susceptible)"
-    if org == "P. aeruginosa":
+    if org == "P. aeruginosa" and pheno_label == "susceptible":
         return "P. aeruginosa (susceptible)"
+    if org == "P. aeruginosa" and pheno_label == "resistant":
+        return "P. aeruginosa (resistant)"
+    if org == "P. aeruginosa" and pheno_label == "MDR":
+        return "P. aeruginosa (MDR)"
 
     return f"{org} ({pheno_label})"
 
