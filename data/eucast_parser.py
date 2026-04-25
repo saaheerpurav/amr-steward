@@ -1,7 +1,6 @@
 # SAAHEER OWNS THIS FILE
 # Parses EUCAST clinical breakpoints CSV and classifies MIC values.
-# Download CSV from: https://www.eucast.org/clinical_breakpoints/
-# TODO Saaheer: download eucast.csv and implement classify_mic()
+# Breakpoints sourced from EUCAST v16.0 (2026); committed as data/eucast.csv.
 
 import csv
 import os

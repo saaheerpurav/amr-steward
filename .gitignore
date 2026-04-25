@@ -30,9 +30,6 @@ outputs/
 runs/
 wandb/
 
-# ── EUCAST data (must be downloaded fresh — not committed) ────────────────────
-data/eucast.csv
-
 # ── Sensitive / internal planning documents ────────────────────────────────────
 IMPLEMENTATION_PLAN.md
 PROJECT_MASTER.md
