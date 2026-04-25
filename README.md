@@ -172,6 +172,16 @@ GET  /health             → 200 OK
 
 ---
 
+## Links
+
+| Resource | URL |
+|----------|-----|
+| Live Environment (HF Space) | https://divyanshb06-amrsteward.hf.space |
+| Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
+| Training Notebook (Colab) | [AMR_Steward.ipynb](AMR_Steward.ipynb) |
+
+---
+
 ## Team
 
 Built at a 24-hour hackathon, April 2026.
