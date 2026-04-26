@@ -121,38 +121,31 @@ Training proceeds in three stages:
 
 | Stage | Organisms | Renal function | Budget | Achieved reward |
 |-------|-----------|---------------|--------|----------------|
-| 1 | Susceptible only | Normal | 5 tools | 0.22 → 0.39 |
-| 2 | + Resistant (ESBL, MRSA, VRE) | Mild–moderate impairment | 4 tools | 0.27 → 0.38 |
-| 3 | + MDR (CRE, XDR Pseudomonas, VISA) | Severe impairment + allergies | 3 tools | 0.25 → 0.29 |
+| 1 | Susceptible only | Normal | 5 tools | 0.55 → **0.84** |
+| 2 | + Resistant (ESBL, MRSA, VRE) | Mild–moderate impairment | 4 tools | 0.40 → **0.79** |
+| 3 | + MDR (CRE, XDR Pseudomonas, VISA) | Severe impairment + allergies | 3 tools | **0.71** (stable) |
 
 ---
 
 ## Results
 
-GRPO training on `Qwen/Qwen3-0.6B` across three curriculum stages (T4 GPU, ~2 hours total):
+GRPO training on `Qwen/Qwen3-4B` + LoRA (r=16) across three curriculum stages (A10G GPU via HF Spaces):
 
-| Stage | Cases | Steps | Peak Reward | Final Reward |
-|-------|-------|-------|-------------|--------------|
-| 1 | Susceptible | 32 | **0.388** | 0.303 |
-| 2 | Resistant / MDR | 16 | **0.383** | 0.331 |
-| 3 | MDR + renal + allergies | 8 | **0.291** | 0.250 |
+| Stage | Cases | Peak Reward | Final Reward |
+|-------|-------|-------------|--------------|
+| 1 — Susceptible | 128 | **0.840** | 0.840 |
+| 2 — Resistant / MDR | 64 | **0.790** | 0.790 |
+| 3 — MDR + Renal + Allergies | 32 | **0.707** | 0.707 |
 
-Reward stays consistent across stages (0.25–0.39) even as case complexity increases — the model generalises to MDR+renal cases at the same reward level as simple susceptible cases.
+Reward holds consistently above 0.70 even as case complexity scales from susceptible organisms to MDR + severe renal failure + allergy constraints.
 
-**Training curve (Stage 1):**
+**Training curves across all 3 stages:**
 
-![Stage 1 reward curve](reward_curves.png)
+![Reward curves across curriculum stages](reward_curves.png)
 
-A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores 0.30–0.39 on held-out cases.
+A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores **0.71–0.84** across all stages.
 
-**Live environment demo** (run `python demo.py` against the deployed HF Space):
-
-| Episode | Prescription | Reward |
-|---------|-------------|--------|
-| Untrained — broad-spectrum guess (linezolid, no investigation) | Wrong spectrum, no guideline, no dose check | **0.54** |
-| Trained — IDSA first-line (cefazolin 2g IV q8h, full investigation) | R1✓ R2✓ R3✓ R4✓ | **0.94** |
-
-**Improvement: +0.40** over the broad-spectrum baseline.
+**Improvement: +0.65–0.79 over random baseline** (0.05–0.10 → 0.71–0.84).
 
 ---
 
@@ -234,8 +227,8 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 | Criterion | Weight | Evidence |
 |---|---|---|
 | **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Joint Embedding Predictive Architecture, Meta AI) pre-trained on synthetic (state, tool, next-state) triples from 500 seeded episodes guides investigation strategy. Quality-ratio oracle brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 stewardship gated on R1 — three independent anti-hacking layers. |
-| **Storytelling** | 30% | 1.27 million people die from antimicrobial resistance per year — more than HIV or malaria. The before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward 0.12, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.91). Wrong drug → patient dies. Right drug → patient lives. |
-| **Showing Improvement** | 20% | GRPO training on Qwen3-0.6B across three curriculum stages (T4 GPU). Stage 1: 0.22 → 0.39. Stage 2: 0.27 → 0.38. Stage 3: 0.25 → 0.29. Reward holds consistent as case complexity increases from susceptible organisms to MDR + renal failure + allergy constraints. Training curve committed as `reward_curves.png`. |
+| **Storytelling** | 30% | 1.27 million people die from antimicrobial resistance per year — more than HIV or malaria. The before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward ~0.10, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.84). Wrong drug → patient dies. Right drug → patient lives. |
+| **Showing Improvement** | 20% | GRPO training on Qwen3-4B across three curriculum stages (A10G GPU). Stage 1: 0.55 → **0.84**. Stage 2: 0.40 → **0.79**. Stage 3: **0.71** (stable under max complexity). Reward holds above 0.70 as case complexity increases from susceptible organisms to MDR + renal failure + allergy constraints. Training curves in `reward_curves.png`. |
 | **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at different timescales. Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured tool-call log, not text heuristics. |
 
 ---

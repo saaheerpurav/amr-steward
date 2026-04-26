@@ -18,6 +18,19 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+# ── Kill distributed env vars before ANY ML library loads ─────────────────────
+# HF Spaces sets LOCAL_RANK/WORLD_SIZE for multi-GPU hardware. Accelerate reads
+# these and calls init_process_group() → NCCL waits forever for missing ranks.
+for _k in ("LOCAL_RANK", "RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT"):
+    os.environ.pop(_k, None)
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"       # single GPU only
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Write Accelerate config so it never attempts distributed even if env leaks
+_accel_cfg = Path.home() / ".cache" / "huggingface" / "accelerate" / "default_config.yaml"
+_accel_cfg.parent.mkdir(parents=True, exist_ok=True)
+_accel_cfg.write_text("compute_environment: LOCAL_MACHINE\ndistributed_type: 'NO'\nnum_processes: 1\n")
+
 # ── Config (override via HF Space secrets) ────────────────────────────────────
 MODEL_NAME      = os.getenv("MODEL_NAME",    "Qwen/Qwen3-4B")
 HF_REPO_ID      = os.getenv("HF_REPO_ID",   "saaheerpurav/amr-steward-model")
@@ -44,7 +57,7 @@ When ready, output EXACTLY this one line and stop:
 
 Do not add any text before or after the COMMIT line."""
 
-_status: dict[str, Any] = {"phase": "starting", "stage": None, "reward": None, "error": None}
+_status: dict[str, Any] = {"phase": "starting", "stage": None, "reward": None, "error": None, "last_trl_metrics": None}
 _log_lines: list[str] = []
 _start_time = time.time()
 
@@ -201,21 +214,30 @@ def _build_reward_fns():
 
 # ── Dataset builder ────────────────────────────────────────────────────────────
 
-def build_dataset(level: int, num_samples: int):
+def build_dataset(level: int, num_samples: int, tokenizer=None):
     from datasets import Dataset
     from env import AMREnvironment
 
     def _render(obs):
-        parts = [f"SYSTEM:\n{SYSTEM_PROMPT}", f"USER:\n{obs.patient_text}"]
+        user_content = obs.patient_text
         if obs.tool_results:
-            parts.append("INVESTIGATION RESULTS:\n" + "\n---\n".join(obs.tool_results))
+            user_content += "\n\nINVESTIGATION RESULTS:\n" + "\n---\n".join(obs.tool_results)
         if obs.world_model_rankings:
-            parts.append(obs.world_model_rankings)
-        parts.append(f"INVESTIGATION BUDGET REMAINING: {obs.budget_remaining}")
+            user_content += f"\n\n{obs.world_model_rankings}"
+        user_content += f"\n\nINVESTIGATION BUDGET REMAINING: {obs.budget_remaining}"
         if obs.budget_remaining == 0:
-            parts.append("YOU MUST COMMIT NOW.")
-        parts.append("ASSISTANT:")
-        return "\n\n".join(parts)
+            user_content += "\n\nYOU MUST COMMIT NOW."
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
+        if tokenizer is not None:
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        # Fallback: raw string (only used if tokenizer unavailable)
+        return "\n\n".join([f"SYSTEM:\n{SYSTEM_PROMPT}", f"USER:\n{user_content}", "ASSISTANT:"])
 
     env = AMREnvironment()
     rows = []
@@ -234,33 +256,24 @@ def build_dataset(level: int, num_samples: int):
 
 def load_model():
     import torch
-    log(f"Loading {MODEL_NAME} with Unsloth ...")
-    try:
-        from unsloth import FastLanguageModel
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=MODEL_NAME,
-            max_seq_length=2048,
-            dtype=None,
-            load_in_4bit=LOAD_IN_4BIT,
-        )
-        model = FastLanguageModel.get_peft_model(
-            model, r=16,
-            target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
-            lora_alpha=32, lora_dropout=0, bias="none",
-            use_gradient_checkpointing="unsloth", random_state=42,
-        )
-        log("Unsloth loaded.")
-    except ImportError:
-        log("Unsloth unavailable — falling back to vanilla transformers")
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        from peft import LoraConfig, get_peft_model
-        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=dtype, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        model = get_peft_model(model, LoraConfig(
-            r=16, lora_alpha=32, lora_dropout=0.0, bias="none", task_type="CAUSAL_LM",
-            target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
-        ))
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import LoraConfig, get_peft_model
+
+    log(f"Loading {MODEL_NAME} (vanilla transformers + PEFT) ...")
+    _dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+    log(f"Using dtype: {_dtype}")
+
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=_dtype, device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+    lora_cfg = LoraConfig(
+        r=16, lora_alpha=32, lora_dropout=0.0, bias="none", task_type="CAUSAL_LM",
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+    )
+    model = get_peft_model(model, lora_cfg)
+    model.enable_input_require_grads()
+    # No gradient checkpointing — Qwen3-4B fits in 24 GB A10G VRAM without it.
+    # Keeping use_cache=True so autoregressive generation uses KV cache (fast).
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -276,33 +289,43 @@ def train_stage(model, tokenizer, level, num_samples, stage_label, reward_fns):
     log(f"=== {stage_label}: level={level}, samples={num_samples} ===")
     _status.update({"phase": "training", "stage": stage_label})
 
-    dataset = build_dataset(level, num_samples)
+    dataset = build_dataset(level, num_samples, tokenizer)
     log(f"Dataset built: {len(dataset)} cases")
 
     out_dir = f"{OUTPUT_DIR}/{stage_label}"
-    bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+    # Heartbeat: log every 30s so we can tell training is alive even before first reward
+    _stop_heartbeat = threading.Event()
+    def _heartbeat():
+        n = 0
+        while not _stop_heartbeat.wait(30):
+            n += 1
+            log(f"  [heartbeat #{n}] trainer.train() still running ...")
+    threading.Thread(target=_heartbeat, daemon=True).start()
 
+    log("Creating GRPOConfig ...")
     config = GRPOConfig(
         output_dir=out_dir,
         num_train_epochs=1,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=8,
+        gradient_accumulation_steps=2,    # must satisfy: (batch*accum) % num_generations == 0 → 2%2==0
         learning_rate=LEARNING_RATE,
         warmup_ratio=0.05,
         lr_scheduler_type="cosine",
-        bf16=bf16,
-        fp16=torch.cuda.is_available() and not bf16,
+        bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(),
+        fp16=False,
         logging_steps=1,
-        save_steps=100,
+        save_steps=500,
         save_total_limit=1,
         report_to="none",
-        max_completion_length=MAX_COMPLETION,
-        num_generations=NUM_GENERATIONS,
+        max_completion_length=512,        # need room for model to reach COMMIT line
+        num_generations=2,               # min valid for GRPO; accum=2 ensures 2%2==0
         temperature=0.7,
-        log_completions=True,
+        log_completions=False,
         use_vllm=False,
+        dataloader_num_workers=0,
     )
 
+    log("Creating GRPOTrainer ...")
     trainer = GRPOTrainer(
         model=model,
         reward_funcs=list(reward_fns),
@@ -313,14 +336,45 @@ def train_stage(model, tokenizer, level, num_samples, stage_label, reward_fns):
 
     # Patch logging to update status page
     _orig_log = trainer.log
+    _sample_logged = [False]
+
     def _patched_log(logs, *args, **kwargs):
-        if "reward" in logs:
-            _status["reward"] = f"{logs['reward']:.4f}"
-            log(f"  step={logs.get('step',0)} reward={logs['reward']:.4f} std={logs.get('reward_std',0):.4f}")
+        numeric = {k: round(v, 5) for k, v in logs.items() if isinstance(v, (int, float))}
+        if numeric:
+            _status["last_trl_metrics"] = numeric
+            log(f"  step metrics: {numeric}")
+        reward_val = logs.get("reward") or logs.get("mean_reward") or logs.get("rewards")
+        if reward_val is not None:
+            _status["reward"] = f"{float(reward_val):.4f}"
+            log(f"  step={logs.get('step',0)} reward={float(reward_val):.4f}")
         _orig_log(logs, *args, **kwargs)
     trainer.log = _patched_log
 
+    # Hook: log first completion text to status so we can see what model generates
+    _orig_compute = trainer.compute_loss if hasattr(trainer, "compute_loss") else None
+    try:
+        _orig_gen = trainer._generate_completions
+        def _hooked_gen(*args, **kwargs):
+            result = _orig_gen(*args, **kwargs)
+            if not _sample_logged[0]:
+                _sample_logged[0] = True
+                try:
+                    sample = result[0] if isinstance(result, (list, tuple)) else result
+                    if hasattr(sample, "__iter__") and not isinstance(sample, str):
+                        sample = sample[0]
+                    sample_str = str(sample)[:300]
+                    _status["sample_completion"] = sample_str
+                    log(f"  SAMPLE COMPLETION: {sample_str[:200]}")
+                except Exception:
+                    pass
+            return result
+        trainer._generate_completions = _hooked_gen
+    except AttributeError:
+        pass
+
+    log("Calling trainer.train() ...")
     trainer.train()
+    _stop_heartbeat.set()
     history = trainer.state.log_history
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     (Path(out_dir) / "log_history.json").write_text(json.dumps(history, indent=2))
