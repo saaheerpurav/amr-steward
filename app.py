@@ -151,6 +151,39 @@ def health() -> JSONResponse:
     return JSONResponse({"status": "healthy"})
 
 
+@app.get("/api/jepa-rankings", tags=["JEPA World Model"])
+def jepa_rankings() -> JSONResponse:
+    """Read-only: return JEPA predicted information-gain scores for each available tool
+    given the current episode state.
+
+    This endpoint exposes the world model's latent-space predictions so the demo
+    UI can visualise them as 'World Model Confidence' bars next to each clue card.
+
+    Safe to call at any time — it reads state but never mutates it.
+    Returns an empty list if no episode is active.
+    """
+    try:
+        from env.world_model import AVAILABLE_TOOLS, AMRWorldModel
+        wm = _get_world_model()  # already-loaded singleton
+        patient = _ENV.current_patient
+        if patient is None:
+            return JSONResponse({"rankings": [], "note": "No active episode — call /reset first."})
+
+        known_state = wm.encode_known_state(
+            list(_ENV._state.tool_results),
+            patient.__dict__,
+        )
+        rankings = wm.get_test_rankings(known_state, AVAILABLE_TOOLS)
+        return JSONResponse({
+            "rankings": [{"tool": tool, "score": round(score, 4)} for tool, score in rankings],
+            "episode_id": _ENV._state.episode_id,
+            "tools_called": len(_ENV._state.tool_results),
+        })
+    except Exception as exc:
+        logger.exception("jepa_rankings() failed")
+        return JSONResponse({"detail": str(exc), "rankings": []}, status_code=500)
+
+
 # ---------------------------------------------------------------------------
 # Demo + Landing page
 # ---------------------------------------------------------------------------

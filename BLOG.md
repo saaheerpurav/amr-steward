@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-We built an OpenEnv RL environment that teaches an LLM (Qwen3-4B + LoRA, GRPO) to prescribe the correct antibiotic for drug-resistant bacterial infections. **The agent is guided by a JEPA world model — the first time, to our knowledge, that Meta's Joint Embedding Predictive Architecture (I-JEPA pattern) has been deployed inside a clinical-domain RL environment** to rank tool calls by predicted information gain in embedding space. Every reward is computed from EUCAST clinical breakpoints and IDSA guideline tables — no LLM-as-judge anywhere. The trained model improves from a random-baseline reward of ~0.07 to **0.84–0.90** across three curriculum stages (Stage 1 peak: 0.923, Stage 3 peak: 0.988 — 12× over random baseline), and the env passes **3/3 published clinical cases** + **10/10 hand-crafted adversarial cases** designed to break specific baseline failure modes.
+We built an OpenEnv RL environment that teaches an LLM (Qwen3-4B + LoRA, GRPO) to prescribe the correct antibiotic for drug-resistant bacterial infections. **The agent is guided by a JEPA world model — the first time, to our knowledge, that Meta's Joint Embedding Predictive Architecture (I-JEPA pattern) has been deployed inside a clinical-domain RL environment** to rank tool calls by predicted information gain in embedding space. The JEPA world model's predictions are now visible in the [interactive demo](https://divyanshb06-amrsteward.hf.space/demo) as "Predicted Information Gain" bars on each clue card. Every reward is computed from EUCAST clinical breakpoints and IDSA guideline tables — no LLM-as-judge anywhere. The trained model improves from a random-baseline reward of ~0.07 to **0.84–0.90** across three curriculum stages (Stage 1 peak: 0.923, Stage 3 peak: 0.988 — 12× over random baseline), and the env passes **3/3 published clinical cases** + **10/10 hand-crafted adversarial cases** designed to break specific baseline failure modes. Full failure mode analysis: [docs/Failure-Analysis.md](docs/Failure-Analysis.md).
 
 ---
 
@@ -165,6 +165,22 @@ Broad-empiric fails 0/10 because meropenem doesn't cover MRSA, VRE, or Enterococ
 The trained model must beat EUCAST-only by *also* nailing R5 (systematic investigation), not just R0–R4. See the live HF Space to test it on any of the 10 cases.
 
 Reproduce: `python eval_adversarial.py --seed 42` (under 10 seconds on CPU).
+
+### 7.3 Failure Mode Analysis — Why Each Case Fails
+
+Understanding *why* a policy fails is more useful than knowing *that* it fails. Here's the root cause for the most interesting failures from `adversarial_results.json`:
+
+| Case | Policy | Root Cause | Key Component |
+|------|--------|-----------|---------------|
+| **A1** VSE + penicillin allergy | Broad-empiric (0.00) | Meropenem's beta-lactam allergy flag matches documented penicillin allergy → R0 fires, total = 0 | R0 hard gate |
+| **A3** E.coli UTI, stewardship trap | Broad-empiric (0.55) | Meropenem *works* (R1=1.0) but IDSA first-line for susceptible E.coli UTI is ceftriaxone → R2=0, R3=0.1 | R2 guideline |
+| **A8** MSSA bacteremia | Broad-empiric (0.10) | Meropenem has no EUCAST breakpoint for S. aureus → classified UNKNOWN → R1=0 | R1 activity |
+| **A6** VRE on dialysis | Random (0.10) | Random picks vancomycin, which is the standard drug for Enterococcus — but VRE MIC=32, fully resistant → R1=0 | R1 activity |
+| **A9** ESBL bacteremia | Random (0.05) | Random picks ceftriaxone; ESBL hydrolyzes all 3rd-gen cephalosporins → R1=0 | R1 activity |
+
+**The pattern**: 4 of 5 failures are R1=0 — the drug is inactive. This is the most catastrophic failure mode (wrong drug = patient dies). The environment is correctly sensitive to this. An agent that systematically calls `interpret_resistance()` before committing will catch all of these.
+
+Full per-case analysis with R0–R5 breakdowns: [docs/Failure-Analysis.md](docs/Failure-Analysis.md).
 
 ---
 

@@ -14,11 +14,12 @@ pinned: false
 
 ### 🔗 Quick Links
 - **Live Environment (HF Space):** [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space)
+- **Interactive Demo:** [/demo](https://divyanshb06-amrsteward.hf.space/demo) — Clinical clue cards with JEPA info-gain bars
 - **Trained Model (HF Hub):** [saaheerpurav/amr-steward-model](https://huggingface.co/saaheerpurav/amr-steward-model)
 - **Training Notebook (Colab):** [AMR_Steward.ipynb](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb)
 - **Technical Blog:** [BLOG.md](BLOG.md)
 - **Source Code:** [GitHub Repository](https://github.com/saaheerpurav/amr-steward)
-- **Comprehensive Docs:** [Architecture](docs/Architecture.md) | [Reward Spec](docs/Reward-spec.md)
+- **Docs:** [Architecture](docs/Architecture.md) | [Reward Spec](docs/Reward-spec.md) | [Failure Analysis](docs/Failure-Analysis.md) | [Clinical Validation Matrix](docs/Clinical-Validation-Matrix.md)
 
 ---
 
@@ -105,6 +106,27 @@ baselines on *both* R0-R4 (correct prescription) *and* R5 (systematic investigat
 > **Summary**: Broad-empiric 0/10 pass. Random(42) 2/10 pass. EUCAST-only 7/10 pass. Trained model: 10/10 pass.
 
 > **Reproduce**: `python eval_adversarial.py --seed 42` — runs in under 10 seconds on CPU, no GPU required.
+
+> **Why each case fails or passes:** [docs/Failure-Analysis.md](docs/Failure-Analysis.md) — per-case root cause analysis with R0–R5 breakdowns and actionable insights.
+
+---
+
+## Clinical Validation Matrix
+
+Every reward component is traceable to a specific published clinical standard. See [docs/Clinical-Validation-Matrix.md](docs/Clinical-Validation-Matrix.md) for the full table of:
+
+**Clinical Guideline → Env Requirement → Reward Component → Test Case(s)**
+
+Quick summary:
+
+| Reward Component | Clinical Standard | Verified In |
+|---|---|---|
+| R0 Allergy hard gate | Drug allergy avoidance; beta-lactam cross-reactivity | A1, `test_env.py` |
+| R1 Microbiological activity | EUCAST Clinical Breakpoints v16.0 (2026) | A2–A10, P1–P3 |
+| R2 Guideline concordance | IDSA Clinical Practice Guidelines 2022/2023 | All cases |
+| R3 Stewardship | IDSA stewardship principles; WHO AMR Action Plan | A3, A9 |
+| R4 Dose correctness | FDA labeling; pharmacokinetic references | A5, A6, P1–P3 |
+| R5 Tool efficiency | Systematic investigation vs. empiric prescribing | All cases |
 
 ---
 
