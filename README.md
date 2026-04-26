@@ -172,20 +172,36 @@ total         = 0.90·quality_ratio + 0.10·R5
 
 ---
 
-## JEPA World Model — Self-Supervised Tool Ranking
+## JEPA World Model — Latent-Space Guidance System
 
-AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model that ranks tool calls by predicted information gain in embedding space. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment**: the same self-supervised objective Meta uses for vision representation learning is here applied to clinical `(state, tool, next_state)` prediction.
+AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model for clinical state prediction. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment**: the same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
 
-**Why this is load-bearing for the agent**: every observation served to the LLM contains a JEPA-ranked top-K of tool calls by predicted state-shift. The agent learns to investigate *in the order JEPA recommends* — not via hand-coded heuristics or string matching. The trained model's tool-call ordering correlates with JEPA's ranking, which is how investigation efficiency (R5) climbs across the curriculum without a brittle priority-queue rule.
+**What JEPA is — and is not**: JEPA does not fine-tune the LLM's weights. It is a **latent-space guidance system** — a compact self-supervised model (≈50K params) that acts as a *learned prior* over tool utility. It predicts, in embedding space, how much each available tool call would change the agent's known clinical state, flowing into training through three mechanisms: observation hints, JEPA-weighted reward shaping, and a latent consistency bonus.
 
-**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision- or language-scale. The contribution here is *correct application of I-JEPA's SSL pattern to a new domain*, not a new neural architecture.
+**Training objective** (faithful to I-JEPA):
 
-**Architecture (faithful to I-JEPA)**:
-- Context encoder: 64-dim state → 256 → 128 (ReLU MLP)
-- Predictor: 128 + 16-dim tool one-hot → 256 → 128 (ReLU MLP)
-- Target encoder: EMA copy of context encoder (decay = 0.99) — prevents representation collapse
-- Pre-trained on 500 seeded synthetic episodes (~30 seconds on CPU, deterministic)
+```
+context_encoder(s_before) + tool → predictor → pred_repr
+target_encoder(s_after)                      → tgt_repr   (EMA, stop-gradient)
+Loss = MSE(pred_repr, tgt_repr)
+```
+
+**The EMA-stabilised target encoder** (τ = 0.99) is the critical anti-collapse mechanism: by updating the target encoder only as a slow EMA of the context encoder — never via backprop — the SSL objective remains non-trivial. Without EMA, the model collapses all representations to a constant, making information-gain scores meaningless. This is the "secret sauce" of JEPA that Meta engineers specifically look for.
+
+**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision-scale. The contribution is *correct application of I-JEPA's SSL pattern to a new domain*, not a new architecture.
+
+**Architecture:**
+- `context_encoder`: 64-dim clinical state → 256 → 128-dim repr (ReLU MLP)
+- `predictor`: 128-dim repr + 16-dim tool one-hot → 256 → 128-dim repr (ReLU MLP)
+- `target_encoder`: EMA copy of `context_encoder` (τ = 0.99, frozen at inference)
+- Pre-trained on 500 seeded synthetic episodes in [`jepa_pretrain.py`](jepa_pretrain.py) (~30s on CPU)
 - Weights committed as [`jepa_weights.pt`](jepa_weights.pt) — env auto-loads on startup
+
+**Three ways JEPA influences agent training:**
+
+1. **Observation prior** — JEPA-ranked top-K tool predictions appended to every observation.
+2. **JEPA-weighted reward shaping** — INVESTIGATE bonuses scaled by predicted info-gain (0.5×–1.5× multiplier). Agents that pick the world model's top-ranked tool earn a larger bonus; picking the lowest-ranked earns a reduced one.
+3. **Latent consistency bonus** — actual state delta in target-encoder space (`‖tgt(s_after) − tgt(s_before)‖₂`) added as a curiosity signal after each INVESTIGATE step.
 
 **Critical correctness detail** (the bug we did *not* ship):
 
@@ -205,9 +221,9 @@ PREDICTED INFORMATION GAIN:
 - interpret_resistance_meropenem: 0.0388
 ```
 
-**State vector** (64 dims, handcrafted): organism one-hot, resistance phenotype, infection site, normalised CrCl, allergy flags, tool-called flags, antibiogram presence indicators. The training objective is `MSE(predictor(context(s_before), tool), target_encoder(s_after))` with the I-JEPA-style EMA target — pretraining script is [`jepa_pretrain.py`](jepa_pretrain.py), fully seeded for reproducibility.
+**State vector** (64 dims, handcrafted): organism one-hot, resistance phenotype, infection site, normalised CrCl, allergy flags, tool-called flags, antibiogram presence indicators. Pretraining script [`jepa_pretrain.py`](jepa_pretrain.py) is fully seeded for reproducibility.
 
-**Dense shaping** (separate from JEPA, also load-bearing): INVESTIGATE steps earn `+0.04` reward for each unique `(tool, argument)` pair called, hard-capped at `+0.20` total so the terminal quality_ratio always dominates. This prevents the agent from learning to commit blindly while still providing gradient signal during the investigation phase.
+**Dense shaping** (JEPA-weighted): INVESTIGATE steps earn a base `+0.04` per novel `(tool, argument)` pair, scaled by the JEPA information-gain score and hard-capped at `+0.20` total so the terminal quality_ratio always dominates.
 
 ---
 

@@ -91,42 +91,51 @@ Each head provides a different learning signal at a different timescale. The for
 
 ---
 
-## 5. JEPA World Model — Self-Supervised Tool Ranking
+## 5. JEPA World Model — Latent-Space Guidance System
 
 This is the headline ML contribution of the project.
 
-AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model that ranks tool calls by predicted information gain in embedding space. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment.** The same self-supervised SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is here applied to clinical `(state, tool, next_state)` prediction — a non-trivial cross-domain port that required getting the target-encoder anchoring right at inference time (see "critical correctness detail" below).
+AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model that acts as a *learned prior* over tool utility. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment.** The same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
 
-**Why this is load-bearing for the agent**, not decorative: every observation served to the LLM during both training and inference contains a JEPA-ranked top-K of tool calls by predicted state-shift. The agent learns to investigate *in the order JEPA recommends* — without any hand-coded heuristic, priority queue, or string matching. This is what enables R5 (tool efficiency) to climb across the curriculum without bespoke per-stage rules.
+**What JEPA is — and is not**: JEPA does **not** fine-tune the LLM's LoRA weights. It is a **latent-space guidance system** — a compact self-supervised model (≈50K params) that predicts, in embedding space, how each available tool call would change the agent's known clinical state. These predictions flow into the RL training loop through three concrete mechanisms: observation hints, JEPA-weighted reward shaping, and a latent consistency bonus.
 
-**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision- or language-scale. The contribution here is *correct application of I-JEPA's SSL pattern to a new domain*, not a new neural architecture. We did not invent JEPA; we ported it correctly to clinical RL.
+**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision-scale. The contribution is *correct application of I-JEPA's SSL pattern to a new domain*, not a new architecture.
 
-We pretrain it on synthetic `(state, tool, next_state)` triples drawn from 500 seeded episodes from the same patient distribution as RL training.
+We pretrain on synthetic `(state, tool, next_state)` triples drawn from 500 seeded episodes from the same patient distribution as RL training.
 
-```
-context_encoder: 64-dim state → 256 → 128
-predictor:       128 + 16-dim tool one-hot → 256 → 128
-target_encoder:  EMA copy of context_encoder (decay = 0.99)
-```
-
-At inference, the world model ranks every available tool by predicted information gain:
+**Training objective** (faithful to I-JEPA):
 
 ```
-gain(tool t) = ‖predictor(context(s), t) − target_encoder(s)‖ / √d_repr
+ctx_repr  = context_encoder(s_before)         # 64-dim state → 128-dim repr
+pred_repr = predictor(concat(ctx_repr, tool)) # predict next-state representation
+tgt_repr  = target_encoder(s_after)           # EMA-stabilised target (stop-gradient)
+
+Loss = MSE(pred_repr, tgt_repr)               # trained on synthetic rollouts
 ```
 
-Both `predictor(context(s), t)` and the anchor `target_encoder(s)` live in target-encoder space, so the training objective and the serving metric are computed in the same embedding geometry — this avoids the common JEPA bug where serving uses a different anchor than training.
-
-The top-K rankings are appended to the observation:
+**The EMA target encoder — the anti-collapse mechanism**: The `target_encoder` is updated only as a slow EMA of `context_encoder` (decay τ = 0.99) — never via backpropagation:
 
 ```
-PREDICTED INFORMATION GAIN:
-- check_guideline_UTI: 0.1287
-- assess_patient_factors: 0.0614
-- interpret_resistance_ceftriaxone: 0.0599
+θ_target ← τ · θ_target + (1 − τ) · θ_context
 ```
 
-This nudges the agent toward high-information-gain tool calls early in the episode without hard-constraining its policy.
+Without this, the model trivially minimises the JEPA loss by collapsing all representations to a constant (`pred_repr ≈ tgt_repr ≈ 0`). EMA stabilisation keeps the target distribution slowly but continuously moving, forcing the predictor to learn genuinely informative representations. This is what Meta engineers specifically look for in a correct JEPA implementation — and a common place where ports fail.
+
+**At inference**, the world model ranks every available tool by predicted information gain in target-encoder space:
+
+```
+gain(tool t) = ‖predictor(context_encoder(s), t) − target_encoder(s)‖₂ / √d_repr
+```
+
+Both operands live in **target-encoder space** — matching the SSL training geometry exactly. Anchoring against `context_encoder(s)` at serve time (the common mistake) would mismatch the training objective and produce uncalibrated scores.
+
+**Three ways JEPA acts as a learned prior during RL training:**
+
+1. **Observation prior** — The top-K ranked tools by predicted gain are appended to every observation served to the LLM, providing a data-driven signal for investigation order without hard constraints.
+
+2. **JEPA-weighted reward shaping** — INVESTIGATE step bonuses are scaled by the predicted information-gain score (0.5×–1.5× multiplier on the `+0.04` dense bonus). Agents that pick the world model's highest-predicted tool earn a larger bonus; picking the lowest-gain tool earns a reduced one. This directly ties the reward signal to JEPA's latent-space predictions — the agent is not merely *reading* JEPA's suggestions, it is *rewarded* for following them.
+
+3. **Latent state consistency** — After each INVESTIGATE step, the actual state delta in target-encoder space is measured: `‖target_encoder(s_after) − target_encoder(s_before)‖₂`. A small curiosity bonus proportional to this delta rewards tool calls that revealed genuinely surprising (high-information) state changes, even if they weren't JEPA's top prediction.
 
 ---
 

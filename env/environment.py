@@ -216,6 +216,21 @@ def assess_patient_factors(patient: PatientCase, drug_properties: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# JEPA helper
+# ---------------------------------------------------------------------------
+
+def _action_to_jepa_key(tool_name: str | None, tool_arg: str | None) -> str:
+    """Map (tool_name, tool_arg) to an AVAILABLE_TOOLS compound key."""
+    if not tool_name:
+        return ""
+    if tool_name == "interpret_resistance" and tool_arg:
+        return f"interpret_resistance_{tool_arg.lower()}"
+    if tool_name == "check_guideline" and tool_arg:
+        return f"check_guideline_{tool_arg}"
+    return tool_name  # "assess_patient_factors" maps directly
+
+
+# ---------------------------------------------------------------------------
 # Environment class — OpenEnv compliant
 # ---------------------------------------------------------------------------
 
@@ -232,6 +247,7 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
 
     _DENSE_NOVEL_TOOL = 0.04
     _DENSE_CAP = 0.20
+    _CONSISTENCY_SCALE = 0.02   # max curiosity bonus per step from latent state delta
 
     def __init__(self) -> None:
         super().__init__()
@@ -361,24 +377,74 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
     # ------------------------------------------------------------------
 
     def _handle_investigate(self, action: AMRAction) -> tuple[float, bool]:
+        # --- JEPA: encode state BEFORE tool call ---
+        jepa_info_gain = 0.0
+        actual_delta = 0.0
+        s_before = None
+        try:
+            import torch
+            from .world_model import REPR_DIM
+            wm = _get_world_model()
+            patient_features = self.current_patient.__dict__
+            s_before = wm.encode_known_state(
+                list(self._state.tool_results), patient_features
+            )
+            jepa_key = _action_to_jepa_key(action.tool_name, action.tool_arg)
+            jepa_info_gain = wm.predict_information_gain(s_before, jepa_key)
+        except Exception as exc:
+            logger.debug("JEPA pre-step failed: %s", exc)
+
+        # --- Execute tool ---
         result = self._execute_tool(action.tool_name, action.tool_arg)
         self._state.tool_results.append(result)
         self._state.budget_remaining -= 1
 
-        # Dense shaping: reward novel (tool, arg) pairs, capped to keep terminal dominant
+        # --- JEPA: compute actual state delta AFTER tool call ---
+        if s_before is not None:
+            try:
+                import torch
+                from .world_model import REPR_DIM
+                wm = _get_world_model()
+                s_after = wm.encode_known_state(
+                    list(self._state.tool_results), patient_features
+                )
+                with torch.no_grad():
+                    tgt_before = wm.target_encoder(s_before.unsqueeze(0))
+                    tgt_after = wm.target_encoder(s_after.unsqueeze(0))
+                actual_delta = float(min(
+                    1.0,
+                    torch.norm(tgt_after - tgt_before, dim=-1).item() / (REPR_DIM ** 0.5)
+                ))
+            except Exception as exc:
+                logger.debug("JEPA post-step delta failed: %s", exc)
+
+        # --- Dense shaping: JEPA-scaled bonus for novel tool calls ---
+        # Scale base bonus by JEPA score: [0, 1] -> [0.5x, 1.5x] multiplier
+        jepa_scale = 0.5 + jepa_info_gain
         tool_key = f"{action.tool_name}:{action.tool_arg or ''}"
         if tool_key not in self._called_tools:
-            inc = min(self._DENSE_NOVEL_TOOL, self._DENSE_CAP - self._dense_accum)
+            raw = self._DENSE_NOVEL_TOOL * jepa_scale
+            inc = min(raw, self._DENSE_CAP - self._dense_accum)
             self._dense_accum += inc
             step_reward = inc
         else:
             step_reward = 0.0
         self._called_tools.add(tool_key)
 
+        # --- Latent state consistency bonus ---
+        consistency_bonus = actual_delta * self._CONSISTENCY_SCALE
+        # Ensure total dense stays within cap
+        consistency_bonus = min(consistency_bonus, self._DENSE_CAP - self._dense_accum)
+        self._dense_accum += consistency_bonus
+        step_reward += consistency_bonus
+
         # Structured tool log — single source of truth for R5 unique_tool_types
         self._state.tool_history.append({
             "tool": action.tool_name or "unknown",
             "arg": action.tool_arg or "",
+            "jepa_info_gain": round(jepa_info_gain, 4),
+            "actual_delta": round(actual_delta, 4),
+            "consistency_bonus": round(consistency_bonus, 4),
         })
 
         # Persist into state so it survives openenv-core serialization
@@ -386,8 +452,10 @@ class AMREnvironment(Environment[AMRAction, AMRObservation, AMRState]):
         self._state.dense_accum = self._dense_accum
 
         logger.info(
-            "Tool call | tool=%s | arg=%s | dense_reward=%.4f | result=%s",
-            action.tool_name, action.tool_arg, step_reward,
+            "Tool call | tool=%s | arg=%s | jepa_gain=%.3f | actual_delta=%.3f "
+            "| dense_reward=%.4f | result=%s",
+            action.tool_name, action.tool_arg,
+            jepa_info_gain, actual_delta, step_reward,
             result[:120].replace("\n", " "),
         )
 
