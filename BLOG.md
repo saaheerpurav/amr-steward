@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-We built an OpenEnv RL environment that teaches an LLM (Qwen3-4B + LoRA, GRPO) to prescribe the correct antibiotic for drug-resistant bacterial infections. Every reward is computed from EUCAST clinical breakpoints and IDSA guideline tables — no LLM-as-judge anywhere. The trained model improves from a random-baseline reward of ~0.05 to **0.71–0.84** across three curriculum stages, and passes **3/3 published clinical cases** + **9/10 hand-crafted adversarial cases** that are designed to break a specific baseline failure mode.
+We built an OpenEnv RL environment that teaches an LLM (Qwen3-4B + LoRA, GRPO) to prescribe the correct antibiotic for drug-resistant bacterial infections. **The agent is guided by a JEPA world model — the first time, to our knowledge, that Meta's Joint Embedding Predictive Architecture (I-JEPA pattern) has been deployed inside a clinical-domain RL environment** to rank tool calls by predicted information gain in embedding space. Every reward is computed from EUCAST clinical breakpoints and IDSA guideline tables — no LLM-as-judge anywhere. The trained model improves from a random-baseline reward of ~0.05 to **0.71–0.84** across three curriculum stages, and the env passes **3/3 published clinical cases** + **9/10 hand-crafted adversarial cases** designed to break specific baseline failure modes.
 
 ---
 
@@ -91,9 +91,17 @@ Each head provides a different learning signal at a different timescale. The for
 
 ---
 
-## 5. JEPA World Model — Predicting Information Gain
+## 5. JEPA World Model — Self-Supervised Tool Ranking
 
-We pretrain a **Joint Embedding Predictive Architecture** (Meta AI, I-JEPA pattern) on synthetic `(state, tool, next_state)` triples drawn from 500 seeded episodes from the same patient distribution as RL training.
+This is the headline ML contribution of the project.
+
+AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model that ranks tool calls by predicted information gain in embedding space. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment.** The same self-supervised SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is here applied to clinical `(state, tool, next_state)` prediction — a non-trivial cross-domain port that required getting the target-encoder anchoring right at inference time (see "critical correctness detail" below).
+
+**Why this is load-bearing for the agent**, not decorative: every observation served to the LLM during both training and inference contains a JEPA-ranked top-K of tool calls by predicted state-shift. The agent learns to investigate *in the order JEPA recommends* — without any hand-coded heuristic, priority queue, or string matching. This is what enables R5 (tool efficiency) to climb across the curriculum without bespoke per-stage rules.
+
+**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision- or language-scale. The contribution here is *correct application of I-JEPA's SSL pattern to a new domain*, not a new neural architecture. We did not invent JEPA; we ported it correctly to clinical RL.
+
+We pretrain it on synthetic `(state, tool, next_state)` triples drawn from 500 seeded episodes from the same patient distribution as RL training.
 
 ```
 context_encoder: 64-dim state → 256 → 128
