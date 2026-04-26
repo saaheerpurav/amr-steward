@@ -138,41 +138,6 @@ AMR-Steward asks: can an LLM learn to prescribe correctly — not by memorizing 
 
 ---
 
-## How the Environment Works
-
-Each episode is a clinical decision:
-
-1. **Reset** — a synthetic patient is sampled (organism, resistance phenotype, renal function, allergies, antibiogram).
-2. **Investigate** — the agent calls up to N tools to gather information before committing.
-3. **Commit** — the agent prescribes a drug, dose, and duration.
-4. **Reward** — five components evaluate the prescription (see below).
-
-The agent must learn *when* to investigate (budget is limited) and *what* to prescribe given imperfect information.
-
-```
-env.reset(curriculum_level=1)
-→ AMRObservation(patient_text, tool_results=[], budget_remaining=5)
-
-env.step(INVESTIGATE: interpret_resistance("meropenem"))
-→ "meropenem MIC=8.0 mg/L → EUCAST: Resistant"
-
-env.step(INVESTIGATE: check_guideline("bacteremia"))
-→ "IDSA: K. pneumoniae (CRE) + bacteremia → first-line: ceftazidime-avibactam"
-
-env.step(COMMIT: {drug: "ceftazidime-avibactam", dose: "2.5g IV q8h", duration: "14 days"})
-→ reward: 0.92
-```
-
-### Available Tools
-
-| Tool | What it does |
-|------|-------------|
-| `interpret_resistance(drug)` | Looks up MIC from the antibiogram, classifies via EUCAST (S/I/R) |
-| `check_guideline(syndrome)` | Returns IDSA first-line recommendation for this organism + syndrome |
-| `assess_patient_factors()` | Returns renal dose adjustments and allergy flags for all antibiogram drugs |
-
----
-
 ## Reward Functions
 
 All components are pure functions — no LLM judge. The terminal reward is RLVR-verifiable.
@@ -199,73 +164,9 @@ total         = 0.90·quality_ratio + 0.10·R5
 
 ---
 
-## Reward Hacking Defenses
+## JEPA World Model
 
-Four independent mechanisms prevent agents from gaming the reward signal:
-
-| Vector | Defense | How it works |
-|--------|---------|-------------|
-| **Allergy bypass** | R0 hard gate | Any prescription the patient is allergic to → `total = 0.0, done = True` immediately. No partial credit. Checked before any other component. |
-| **Dense reward farming** | Investigation cap | INVESTIGATE steps earn `+0.04` per novel `(tool, argument)` pair, **hard-capped at `+0.20` total per episode** (`DENSE_CAP`). An agent that only calls tools and never commits cannot exceed 0.20 — well below any meaningful terminal reward. |
-| **Repeated tool calls** | `_called_tools` deduplication | `AMREnvironment._called_tools` tracks every `(tool_name, tool_arg)` pair seen. Calling the same tool with the same argument a second time earns **zero** dense bonus. Prevents reward farming via repetition. |
-| **Stewardship gaming** | R3 gated on R1 | R3 (narrowest effective drug) only fires if R1 ≥ threshold — the drug must actually cover the organism. Prescribing a useless narrow-spectrum drug to game the stewardship score returns R3 = 0. |
-
-The patient-specific `quality_ratio` oracle (`compute_optimal_prescription()`) brute-forces the ceiling at reset time — so the terminal signal is relative to what is *actually achievable* for this patient, not a fixed threshold that could be gamed with an easy case.
-
----
-
-## JEPA World Model — Latent-Space Guidance System
-
-AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model for clinical state prediction. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment**: the same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
-
-**What JEPA is — and is not**: JEPA does not fine-tune the LLM's weights. It is a **latent-space guidance system** — a compact self-supervised model (≈50K params) that acts as a *learned prior* over tool utility. It predicts, in embedding space, how much each available tool call would change the agent's known clinical state, flowing into training through three mechanisms: observation hints, JEPA-weighted reward shaping, and a latent consistency bonus.
-
-**Training objective** (faithful to I-JEPA):
-
-```
-context_encoder(s_before) + tool → predictor → pred_repr
-target_encoder(s_after)                      → tgt_repr   (EMA, stop-gradient)
-Loss = MSE(pred_repr, tgt_repr)
-```
-
-**The EMA-stabilised target encoder** (τ = 0.99) is the critical anti-collapse mechanism: by updating the target encoder only as a slow EMA of the context encoder — never via backprop — the SSL objective remains non-trivial. Without EMA, the model collapses all representations to a constant, making information-gain scores meaningless. This is the "secret sauce" of JEPA that Meta engineers specifically look for.
-
-**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision-scale. The contribution is *correct application of I-JEPA's SSL pattern to a new domain*, not a new architecture.
-
-**Architecture:**
-- `context_encoder`: 64-dim clinical state → 256 → 128-dim repr (ReLU MLP)
-- `predictor`: 128-dim repr + 16-dim tool one-hot → 256 → 128-dim repr (ReLU MLP)
-- `target_encoder`: EMA copy of `context_encoder` (τ = 0.99, frozen at inference)
-- Pre-trained on 500 seeded synthetic episodes in [`jepa_pretrain.py`](jepa_pretrain.py) (~30s on CPU)
-- Weights committed as [`jepa_weights.pt`](jepa_weights.pt) — env auto-loads on startup
-
-**Three ways JEPA influences agent training:**
-
-1. **Observation prior** — JEPA-ranked top-K tool predictions appended to every observation.
-2. **JEPA-weighted reward shaping** — INVESTIGATE bonuses scaled by predicted info-gain (0.5×–1.5× multiplier). Agents that pick the world model's top-ranked tool earn a larger bonus; picking the lowest-ranked earns a reduced one.
-3. **Latent consistency bonus** — actual state delta in target-encoder space (`‖tgt(s_after) − tgt(s_before)‖₂`) added as a curiosity signal after each INVESTIGATE step.
-
-**Critical correctness detail** (the bug we did *not* ship):
-
-```
-gain(tool t) = ‖predictor(context(s), t) − target_encoder(s)‖ / √d_repr
-```
-
-Both `predictor(context(s), t)` and the anchor `target_encoder(s)` live in target-encoder space — so the training objective and the serving metric are computed in the same embedding geometry. This avoids the most common JEPA-deployment failure mode (anchoring against `context_encoder(s)` at serve time, which mismatches the SSL training loss).
-
-**Inference output appended to every observation:**
-
-```
-PREDICTED INFORMATION GAIN:
-- check_guideline_UTI: 0.1287
-- assess_patient_factors: 0.0614
-- interpret_resistance_ceftriaxone: 0.0599
-- interpret_resistance_meropenem: 0.0388
-```
-
-**State vector** (64 dims, handcrafted): organism one-hot, resistance phenotype, infection site, normalised CrCl, allergy flags, tool-called flags, antibiogram presence indicators. Pretraining script [`jepa_pretrain.py`](jepa_pretrain.py) is fully seeded for reproducibility.
-
-**Dense shaping** (JEPA-weighted): INVESTIGATE steps earn a base `+0.04` per novel `(tool, argument)` pair, scaled by the JEPA information-gain score and hard-capped at `+0.20` total so the terminal quality_ratio always dominates.
+The agent is guided by an **I-JEPA world model** deployed inside the RL environment to rank tool calls by predicted information gain in latent space. See [docs/Architecture.md](docs/Architecture.md) for full architectural details.
 
 ---
 
@@ -383,17 +284,6 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 **Why these pathogens specifically:** The environment covers the five bacteria designated as *critical priority* by the WHO Global Priority Pathogens List — *K. pneumoniae*, *E. coli*, *P. aeruginosa*, *S. aureus*, and *Enterococcus*. These five account for the overwhelming majority of drug-resistant infection deaths globally and are the primary targets of antibiotic stewardship programs worldwide. Scope is intentionally narrow and medically verified rather than broad and approximate — every breakpoint and guideline entry in the environment is traceable to a published EUCAST or IDSA source.
 
 
-
-## Judging Criteria
-
-| Criterion | Weight | Evidence (with file references) |
-|---|---|---|
-| **Environment Innovation** | 40% | **First JEPA-based world model deployed inside a clinical-domain RL environment**: applies Meta AI's Joint Embedding Predictive Architecture (I-JEPA pattern, EMA-stabilised target encoder) to clinical `(state, tool, next_state)` prediction — see [`env/world_model.py`](env/world_model.py) and [`jepa_pretrain.py`](jepa_pretrain.py). Every observation served to the LLM contains JEPA-ranked tool calls by predicted information gain, computed in target-encoder space (matches the SSL training objective). Clinical AMR domain itself has zero prior RL environments. Quality-ratio oracle ([`env/reward.py`](env/reward.py) `compute_optimal_prescription`) brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 gated on R1, R5 diversity term — three independent anti-hacking layers. |
-| **Storytelling** | 30% | 1.27 million deaths per year from antimicrobial resistance — more than HIV or malaria. Before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward ~0.10, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.84). Wrong drug → patient dies. Right drug → patient lives. Full narrative in [`BLOG.md`](BLOG.md). |
-| **Showing Improvement** | 20% | GRPO training on Qwen3-4B + LoRA across three curriculum stages (A10G via HF Spaces). Stage 1: 0.54 → **0.90** (peak 0.923, mean 0.84). Stage 2: terminal mean **0.79**. Stage 3: 0.81 → **0.88** (peak 0.988, mean 0.71). Random baseline: 0.07. **12× better than random on Stage 1.** Reward holds above 0.70 as case complexity scales from susceptible organisms to MDR + renal failure + allergies. Training curves: [`reward_curves.png`](reward_curves.png), [`training_summary.png`](training_summary.png). Validated against published literature ([`eval_published_cases.py`](eval_published_cases.py)) and 10 adversarial cases ([`eval_adversarial.py`](eval_adversarial.py)) — see Clinical Validation and Adversarial Stress Test sections. |
-| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at three timescales — see [`train.py`](train.py). Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6) in [`env/reward.py`](env/reward.py), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured `AMRState.tool_history` log ([`env/models.py`](env/models.py)), not text heuristics. |
-
----
 
 ## Team
 
