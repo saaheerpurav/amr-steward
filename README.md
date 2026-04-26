@@ -143,6 +143,10 @@ Reward holds consistently above 0.70 even as case complexity scales from suscept
 
 ![Reward curves across curriculum stages](reward_curves.png)
 
+**Baseline comparison and curriculum generalisation:**
+
+![Training summary — improvement over random baseline](training_summary.png)
+
 A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores **0.71–0.84** across all stages.
 
 **Improvement: +0.65–0.79 over random baseline** (0.05–0.10 → 0.71–0.84).
