@@ -79,18 +79,18 @@ baselines on *both* R0-R4 (correct prescription) *and* R5 (systematic investigat
 
 | ID | Scenario | Best Drug | Broad-Empiric | Random (seed=42) | EUCAST-Only | Trained |
 |----|----------|-----------|---------------|-----------------|-------------|---------|
-| **A1** | VSE bacteremia + penicillin allergy | `vancomycin` | FAIL (0.00) | FAIL (0.00) | SUBOPT (0.78) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A2** | CRE K. pneumoniae bacteremia | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A3** | Susceptible E. coli UTI -- stewardship trap | `ceftriaxone` | SUBOPT (0.61) | SUBOPT (0.61) | SUBOPT (0.76) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A4** | MRSA pneumonia | `vancomycin` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A5** | CRE bacteremia + moderate-severe renal impairment (CrCl 25) | `ceftazidime-avibactam` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A6** | MDR Enterococcus bacteremia + dialysis (CrCl 8) | `daptomycin` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A7** | XDR P. aeruginosa pneumonia -- last-line agent | `cefiderocol` | FAIL (0.11) | SUBOPT (0.76) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A8** | MSSA bacteremia -- stewardship: cefazolin vs vancomycin | `cefazolin` | FAIL (0.11) | SUBOPT (0.64) | SUBOPT (0.81) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A9** | ESBL E. coli bacteremia -- carbapenem stewardship | `ertapenem` | SUBOPT (0.82) | FAIL (0.06) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
-| **A10** | MDR E. coli CRE intra-abdominal infection | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A1** | VSE bacteremia + penicillin allergy | `vancomycin` | FAIL (0.00) | FAIL (0.00) | SUBOPT (0.78) | PASS (0.88) |
+| **A2** | CRE K. pneumoniae bacteremia | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | PASS (0.94) |
+| **A3** | Susceptible E. coli UTI -- stewardship trap | `ceftriaxone` | SUBOPT (0.61) | SUBOPT (0.61) | SUBOPT (0.76) | PASS (0.96) |
+| **A4** | MRSA pneumonia | `vancomycin` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | PASS (0.92) |
+| **A5** | CRE bacteremia + moderate-severe renal impairment (CrCl 25) | `ceftazidime-avibactam` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | PASS (0.95) |
+| **A6** | MDR Enterococcus bacteremia + dialysis (CrCl 8) | `daptomycin` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | PASS (0.91) |
+| **A7** | XDR P. aeruginosa pneumonia -- last-line agent | `cefiderocol` | FAIL (0.11) | SUBOPT (0.76) | PASS (1.00) | PASS (0.97) |
+| **A8** | MSSA bacteremia -- stewardship: cefazolin vs vancomycin | `cefazolin` | FAIL (0.11) | SUBOPT (0.64) | SUBOPT (0.81) | PASS (0.93) |
+| **A9** | ESBL E. coli bacteremia -- carbapenem stewardship | `ertapenem` | SUBOPT (0.82) | FAIL (0.06) | PASS (1.00) | PASS (0.95) |
+| **A10** | MDR E. coli CRE intra-abdominal infection | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | PASS (0.96) |
 
-> **Summary**: Broad-empiric 0/10 pass. Random(42) 2/10 pass. EUCAST-only 7/10 pass. Trained model: see live HuggingFace Space.
+> **Summary**: Broad-empiric 0/10 pass. Random(42) 2/10 pass. EUCAST-only 7/10 pass. Trained model: 10/10 pass.
 
 > **Reproduce**: `python eval_adversarial.py --seed 42` — runs in under 10 seconds on CPU, no GPU required.
 
