@@ -10,9 +10,42 @@ pinned: false
 
 # AMR-Steward
 
-**RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. No LLM judges.
+**RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. **No LLM judges. No subjectivity. Pure lookup tables.**
 
-**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth (Colab) · HuggingFace Spaces
+**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth (Colab) · Qwen3-4B + LoRA · HuggingFace Spaces
+
+---
+
+## Submission Deliverables (Quick Links)
+
+| Deliverable | URL | Status |
+|---|---|---|
+| **Live OpenEnv (HF Space)** | [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space) | Public, cloneable, 200 OK |
+| **Trained Model (HF Hub)** | [saaheerpurav/amr-steward-model](https://huggingface.co/saaheerpurav/amr-steward-model) | Public |
+| **Source Repository** | [github.com/saaheerpurav/amr-steward](https://github.com/saaheerpurav/amr-steward) | Public |
+| **Training Notebook** | [AMR_Steward.ipynb](AMR_Steward.ipynb) · [Open in Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb) | Re-runnable end-to-end |
+| **Technical Writeup** | [BLOG.md](BLOG.md) | 10-section technical writeup |
+| **Browser Demo UI** | [demo_web/index.html](demo_web/index.html) | Interactive env walker |
+| **Reward Curves (PNG)** | [reward_curves.png](reward_curves.png) | Embedded below |
+| **Training Summary (PNG)** | [training_summary.png](training_summary.png) | Embedded below |
+
+---
+
+## Hackathon Validation Checklist
+
+Every item below is explicitly addressed and verifiable from this repo.
+
+| # | Validation Criterion | Evidence |
+|---|---|---|
+| 1 | Public, cloneable HF Space (logged-out browser, no 404) | [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space) returns 200 OK with public OpenEnv landing page; OpenAPI docs at `/docs`, health probe at `/health` |
+| 2 | Valid OpenEnv structure: `Environment` base class | [`env/environment.py`](env/environment.py) — `class AMREnvironment(Environment)` from `openenv.core.env_server` |
+| 3 | Gym-style `reset` / `step` / `state` | [`env/environment.py`](env/environment.py) — all three present, Pydantic-typed, returns `AMRObservation` (subclass of `openenv.core.env_server.Observation`) |
+| 4 | Parseable `openenv.yaml` | [`openenv.yaml`](openenv.yaml) — valid YAML with `name`, `action_space`, `observation_space`, `reward_range`, `curriculum_levels` |
+| 5 | Training evidence committed as `.png` files (loss + reward curves) | [`reward_curves.png`](reward_curves.png) (3-stage GRPO reward) + [`training_summary.png`](training_summary.png) (improvement vs random baseline) — both embedded inline in the Results section |
+| 6 | Runnable training script (Python or Colab notebook) | [`train.py`](train.py) (Python, ~600 lines) + [`AMR_Steward.ipynb`](AMR_Steward.ipynb) ([Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb)) — both end-to-end reproducible on A10G |
+| 7 | README links every deliverable, plots embedded inline | This Quick Links table + Results section embeds both PNGs via relative paths (works on GitHub *and* HF Space) |
+| 8 | Writeup linked from README | [`BLOG.md`](BLOG.md) — 10-section, ~2000 words |
+| 9 | Reproducible evaluation | `python eval.py` (baseline benchmarks) + `python eval_published_cases.py` (3 published cases) + `python eval_adversarial.py --seed 42` (10 adversarial cases) — all run on CPU in <60 seconds, no GPU required |
 
 ---
 
@@ -269,20 +302,23 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 
 | Resource | URL |
 |----------|-----|
-| Live Environment (HF Space) | https://saaheerpurav-amr-steward.hf.space |
+| Live Environment (HF Space — canonical) | https://divyanshb06-amrsteward.hf.space |
+| Live Environment (HF Space — mirror) | https://saaheerpurav-amr-steward.hf.space |
 | Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
 | Training Notebook (Colab) | https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb |
+| Technical Writeup | [BLOG.md](BLOG.md) |
+| Source Repository | https://github.com/saaheerpurav/amr-steward |
 
 ---
 
 ## Judging Criteria
 
-| Criterion | Weight | Evidence |
+| Criterion | Weight | Evidence (with file references) |
 |---|---|---|
-| **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Joint Embedding Predictive Architecture, Meta AI) pre-trained on synthetic (state, tool, next-state) triples from 500 seeded episodes guides investigation strategy. Quality-ratio oracle brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 stewardship gated on R1 — three independent anti-hacking layers. |
-| **Storytelling** | 30% | 1.27 million people die from antimicrobial resistance per year — more than HIV or malaria. The before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward ~0.10, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.84). Wrong drug → patient dies. Right drug → patient lives. |
-| **Showing Improvement** | 20% | GRPO training on Qwen3-4B across three curriculum stages (A10G GPU). Stage 1: 0.55 → **0.84**. Stage 2: 0.40 → **0.79**. Stage 3: **0.71** (stable under max complexity). Reward holds above 0.70 as case complexity increases from susceptible organisms to MDR + renal failure + allergy constraints. Training curves in `reward_curves.png`. |
-| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at different timescales. Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured tool-call log, not text heuristics. |
+| **Environment Innovation** | 40% | Clinical AMR domain — zero prior RL environments exist for antibiotic stewardship. JEPA-inspired world model (Meta AI's Joint Embedding Predictive Architecture, I-JEPA pattern) pre-trained on synthetic (state, tool, next-state) triples from 500 seeded episodes guides investigation strategy — see [`env/world_model.py`](env/world_model.py) and [`jepa_pretrain.py`](jepa_pretrain.py). Quality-ratio oracle brute-forces the optimal prescription at reset time ([`env/reward.py`](env/reward.py) `compute_optimal_prescription`), giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 gated on R1, R5 diversity term — three independent anti-hacking layers. |
+| **Storytelling** | 30% | 1.27 million deaths per year from antimicrobial resistance — more than HIV or malaria. Before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward ~0.10, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.84). Wrong drug → patient dies. Right drug → patient lives. Full narrative in [`BLOG.md`](BLOG.md). |
+| **Showing Improvement** | 20% | GRPO training on Qwen3-4B + LoRA across three curriculum stages (A10G via HF Spaces). Stage 1: 0.55 → **0.84**. Stage 2: 0.40 → **0.79**. Stage 3: **0.71** stable. Reward holds above 0.70 as case complexity scales from susceptible organisms to MDR + renal failure + allergies. Training curves: [`reward_curves.png`](reward_curves.png), [`training_summary.png`](training_summary.png). Validated against published literature ([`eval_published_cases.py`](eval_published_cases.py)) and 10 adversarial cases ([`eval_adversarial.py`](eval_adversarial.py)) — see Clinical Validation and Adversarial Stress Test sections. |
+| **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at three timescales — see [`train.py`](train.py). Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6) in [`env/reward.py`](env/reward.py), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured `AMRState.tool_history` log ([`env/models.py`](env/models.py)), not text heuristics. |
 
 ---
 
