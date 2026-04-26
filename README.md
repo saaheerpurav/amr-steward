@@ -67,39 +67,32 @@ Three real cases from peer-reviewed literature, encoded as `PatientCase` objects
 
 ## Adversarial Stress Test (10 hand-crafted hard cases)
 
-Ten clinical scenarios **none of which are produced by `patient_generator.py`** and were never seen during training. Each case is hand-engineered to break a specific baseline failure mode (allergy gate, narrow-spectrum trap, last-line agent, dialysis dosing). MIC values are unambiguous against EUCAST v16.0 breakpoints.
+These cases are not in any training set; each is engineered to break a specific
+baseline failure mode. MIC values are set to be unambiguous against EUCAST v16.0
+breakpoints. *Trained* column links to the live HuggingFace Space where you can
+inject any case and observe the model's prescription in real time.
 
-**Pass threshold**: `quality_ratio ≥ 0.85` (near-optimal IDSA-concordant prescription, same scoring as the env reward).
+**Pass threshold**: quality\_ratio >= 0.85 (near-optimal IDSA-concordant prescription).
 
-| ID | Scenario | Best Drug | Broad-Empiric | Random (seed=42) | EUCAST-Only | **Oracle (IDSA)** |
-|----|----------|-----------|---------------|-----------------|-------------|-------------------|
-| **A1** | VSE bacteremia + penicillin allergy | `vancomycin` | FAIL (0.00) | FAIL (0.00) | SUBOPT (0.78) | **SUBOPT (0.78)** † |
-| **A2** | CRE K. pneumoniae bacteremia | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | **PASS (1.00)** |
-| **A3** | Susceptible E. coli UTI — stewardship trap | `ceftriaxone` | SUBOPT (0.61) | SUBOPT (0.61) | SUBOPT (0.76) | **PASS (1.00)** |
-| **A4** | MRSA pneumonia | `vancomycin` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | **PASS (1.00)** |
-| **A5** | CRE bacteremia + moderate-severe renal impairment (CrCl 25) | `ceftazidime-avibactam` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | **PASS (1.00)** |
-| **A6** | MDR Enterococcus bacteremia + dialysis (CrCl 8) | `daptomycin` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | **PASS (1.00)** |
-| **A7** | XDR P. aeruginosa pneumonia — last-line agent | `cefiderocol` | FAIL (0.11) | SUBOPT (0.76) | PASS (1.00) | **PASS (1.00)** |
-| **A8** | MSSA bacteremia — stewardship: cefazolin vs vancomycin | `cefazolin` | FAIL (0.11) | SUBOPT (0.64) | SUBOPT (0.81) | **PASS (1.00)** |
-| **A9** | ESBL E. coli bacteremia — carbapenem stewardship | `ertapenem` | SUBOPT (0.82) | FAIL (0.06) | PASS (1.00) | **PASS (1.00)** |
-| **A10** | MDR E. coli CRE intra-abdominal infection | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | **PASS (1.00)** |
+**Note on R5**: Baselines make zero tool calls so R5=0. The trained model must beat
+baselines on *both* R0-R4 (correct prescription) *and* R5 (systematic investigation).
 
-**Pass rates (deterministic, reproducible with `--seed 42`):**
+| ID | Scenario | Best Drug | Broad-Empiric | Random (seed=42) | EUCAST-Only | Trained |
+|----|----------|-----------|---------------|-----------------|-------------|---------|
+| **A1** | VSE bacteremia + penicillin allergy | `vancomycin` | FAIL (0.00) | FAIL (0.00) | SUBOPT (0.78) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A2** | CRE K. pneumoniae bacteremia | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A3** | Susceptible E. coli UTI -- stewardship trap | `ceftriaxone` | SUBOPT (0.61) | SUBOPT (0.61) | SUBOPT (0.76) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A4** | MRSA pneumonia | `vancomycin` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A5** | CRE bacteremia + moderate-severe renal impairment (CrCl 25) | `ceftazidime-avibactam` | FAIL (0.11) | PASS (1.00) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A6** | MDR Enterococcus bacteremia + dialysis (CrCl 8) | `daptomycin` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A7** | XDR P. aeruginosa pneumonia -- last-line agent | `cefiderocol` | FAIL (0.11) | SUBOPT (0.76) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A8** | MSSA bacteremia -- stewardship: cefazolin vs vancomycin | `cefazolin` | FAIL (0.11) | SUBOPT (0.64) | SUBOPT (0.81) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A9** | ESBL E. coli bacteremia -- carbapenem stewardship | `ertapenem` | SUBOPT (0.82) | FAIL (0.06) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
+| **A10** | MDR E. coli CRE intra-abdominal infection | `ceftazidime-avibactam` | FAIL (0.11) | FAIL (0.11) | PASS (1.00) | [Live demo](https://huggingface.co/spaces/saaheerpurav/amr-steward) |
 
-| Policy | PASS | SUBOPT | FAIL | Pass rate |
-|---|---|---|---|---|
-| Broad-empiric (always meropenem) | 0 | 2 | 8 | **0%** |
-| Random (seed=42) | 2 | 3 | 5 | **20%** |
-| EUCAST-only (antibiogram + allergy aware) | 7 | 3 | 0 | **70%** |
-| **Oracle (IDSA-perfect upper bound)** | **9** | **1** | **0** | **90%** |
+> **Summary**: Broad-empiric 0/10 pass. Random(42) 2/10 pass. EUCAST-only 7/10 pass. Trained model: see live HuggingFace Space.
 
-The full per-case R0–R5 breakdown (allergy / activity / guideline / stewardship / dose / tool-efficiency) is committed at [`adversarial_results.json`](adversarial_results.json). Reproduce: `python eval_adversarial.py --seed 42` (<10 seconds, CPU only).
-
-**Trained model** (Qwen3-4B + LoRA, GRPO across 3 stages, 224 cases): trained-model rollouts are stochastic (temperature 0.3) so we don't claim deterministic per-case scores in this README. Curriculum-distribution averages are 0.71–0.84 (see Results section). Interactive verification on any of A1–A10: [live HuggingFace Space](https://divyanshb06-amrsteward.hf.space) — paste the case JSON into `/reset` and step through.
-
-> † **A1 SUBOPT ceiling explained**: the env's `compute_optimal_prescription` is allergy-unaware and would pick ampicillin (R2=1.0); `compute_total_reward` then correctly zeros that with the R0 allergy gate. Vancomycin is the best *safe* option (R2=0.5, IDSA alternative), giving quality_ratio = 0.78. This is the reward stack working as intended — the allergy gate constrains even the oracle solution.
-
-> **Why this isn't memorisation**: the 10 cases are hand-coded `PatientCase` objects with fixed organism / phenotype / antibiogram / CrCl / allergy fields. They are **not generated by `patient_generator.py`** and have never been seen by the trained model. Pass rates are properties of the reward stack and the policy, not of the training distribution.
+> **Reproduce**: `python eval_adversarial.py --seed 42` — runs in under 10 seconds on CPU, no GPU required.
 
 ---
 
