@@ -12,7 +12,7 @@ pinned: false
 
 **RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. No LLM judges.
 
-**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth · HuggingFace Spaces
+**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth (Colab) · HuggingFace Spaces
 
 ---
 
@@ -143,6 +143,10 @@ Reward holds consistently above 0.70 even as case complexity scales from suscept
 
 ![Reward curves across curriculum stages](reward_curves.png)
 
+**Baseline comparison and curriculum generalisation:**
+
+![Training summary — improvement over random baseline](training_summary.png)
+
 A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores **0.71–0.84** across all stages.
 
 **Improvement: +0.65–0.79 over random baseline** (0.05–0.10 → 0.71–0.84).
@@ -216,7 +220,7 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 
 | Resource | URL |
 |----------|-----|
-| Live Environment (HF Space) | https://divyanshb06-amrsteward.hf.space |
+| Live Environment (HF Space) | https://saaheerpurav-amr-steward.hf.space |
 | Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
 | Training Notebook (Colab) | https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb |
 
