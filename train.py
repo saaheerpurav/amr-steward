@@ -453,7 +453,7 @@ def train_stage(
         logging_steps=5,
         save_steps=50,
         save_total_limit=2,
-        report_to="none",
+        report_to="tensorboard",
         max_completion_length=args.max_completion_length,
         num_generations=args.num_generations,
         temperature=args.temperature,
