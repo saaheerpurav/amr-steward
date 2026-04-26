@@ -3,283 +3,169 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AMR-Steward</title>
+<title>AMR-Steward — Can AI save lives?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#060a14;
-  --bg2:#0c1220;
-  --bg3:#111827;
+  --bg:#060a14;--bg2:#0c1220;--bg3:#111827;
   --border:rgba(255,255,255,0.07);
-  --text:#dce8f5;
-  --dim:rgba(220,232,245,0.38);
-  --teal:#00d4aa;
-  --teal-glow:rgba(0,212,170,0.18);
-  --red:#ff4455;
-  --red-glow:rgba(255,68,85,0.18);
-  --amber:#f5a623;
-  --amber-glow:rgba(245,166,35,0.15);
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'Syne',sans-serif;
+  --text:#dce8f5;--dim:rgba(220,232,245,0.38);
+  --teal:#00d4aa;--tealg:rgba(0,212,170,0.15);
+  --red:#ff4455;--redg:rgba(255,68,85,0.15);
+  --amber:#f5a623;--amberg:rgba(245,166,35,0.12);
+  --mono:'IBM Plex Mono',monospace;--sans:'Syne',sans-serif;
 }
 html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
-
-/* ── SCANLINES ── */
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);
-}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.05) 3px,rgba(0,0,0,0.05) 4px)}
 
 /* ── ACTS ── */
-.act{
-  position:fixed;inset:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:clamp(1.5rem,4vw,3rem);
-  opacity:0;pointer-events:none;
-  transition:opacity .35s ease,transform .35s ease;
-  transform:translateY(14px);
-}
+.act{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:clamp(1.5rem,4vw,3rem);
+  opacity:0;pointer-events:none;transition:opacity .32s ease,transform .32s ease;transform:translateY(12px)}
 .act.active{opacity:1;pointer-events:all;transform:translateY(0)}
-.act.out{opacity:0;transform:translateY(-14px);pointer-events:none}
+.act.out{opacity:0;transform:translateY(-12px);pointer-events:none}
 
 /* ── BUTTONS ── */
-.btn{
-  display:inline-flex;align-items:center;gap:.5rem;
-  padding:.8rem 1.8rem;
-  border:1.5px solid var(--teal);background:transparent;
-  color:var(--teal);font-family:var(--mono);font-size:.8rem;font-weight:500;
-  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-  transition:all .2s ease;text-decoration:none;
-}
-.btn:hover{background:var(--teal-glow);box-shadow:0 0 28px rgba(0,212,170,.22)}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.8rem 1.8rem;
+  border:1.5px solid var(--teal);background:transparent;color:var(--teal);
+  font-family:var(--mono);font-size:.78rem;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;cursor:pointer;transition:all .2s;text-decoration:none}
+.btn:hover{background:var(--tealg);box-shadow:0 0 28px rgba(0,212,170,.2)}
 .btn.red{border-color:var(--red);color:var(--red)}
-.btn.red:hover{background:var(--red-glow);box-shadow:0 0 28px rgba(255,68,85,.22)}
-.btn:disabled{opacity:.25;cursor:not-allowed;pointer-events:none}
-.btn.lg{padding:1rem 2.5rem;font-size:.9rem}
+.btn.red:hover{background:var(--redg);box-shadow:0 0 28px rgba(255,68,85,.2)}
+.btn.lg{padding:1rem 2.5rem;font-size:.88rem}
+.btn:disabled{opacity:.22;cursor:not-allowed;pointer-events:none}
 
-/* ═══ ACT 0 — INTRO ═══ */
-#a0{gap:0;text-align:center}
+/* ═══ ACT 0 ═══ */
+#a0{text-align:center;gap:0}
 #a0>*{opacity:0;transform:translateY(18px)}
-#a0.active>#a0-n{animation:up .7s .15s forwards}
-#a0.active>#a0-s{animation:up .7s .5s forwards}
-#a0.active>#a0-q{animation:up .7s .85s forwards}
-#a0.active>#a0-b{animation:up .7s 1.15s forwards}
+#a0.active>#a0-n{animation:up .65s .1s forwards}
+#a0.active>#a0-s{animation:up .65s .45s forwards}
+#a0.active>#a0-q{animation:up .65s .8s forwards}
+#a0.active>#a0-b{animation:up .65s 1.1s forwards}
 @keyframes up{to{opacity:1;transform:translateY(0)}}
+.bignumber{font-family:var(--mono);font-size:clamp(4.5rem,12vw,10rem);font-weight:700;
+  line-height:1;letter-spacing:-.04em;color:var(--red);
+  text-shadow:0 0 120px rgba(255,68,85,.32);margin-bottom:.6rem}
+.intro-sub{font-size:clamp(.9rem,2.2vw,1.2rem);color:var(--dim);letter-spacing:.02em;margin-bottom:2rem}
+.intro-q{font-size:clamp(1.1rem,3vw,1.85rem);font-weight:700;max-width:560px;line-height:1.35;margin-bottom:2.8rem}
 
-.big-number{
-  font-family:var(--mono);
-  font-size:clamp(5rem,13vw,11rem);
-  font-weight:700;line-height:1;letter-spacing:-.04em;
-  color:var(--red);
-  text-shadow:0 0 120px rgba(255,68,85,.35);
-  margin-bottom:.6rem;
-}
-.intro-sub{
-  font-size:clamp(.95rem,2.2vw,1.25rem);
-  color:var(--dim);letter-spacing:.02em;margin-bottom:2.2rem;
-}
-.intro-q{
-  font-size:clamp(1.2rem,3vw,1.9rem);
-  font-weight:700;color:var(--text);max-width:580px;
-  line-height:1.35;margin-bottom:2.8rem;
-}
-
-/* ═══ ACT 1 — PATIENT ═══ */
+/* ═══ ACT 1 ═══ */
 #a1{gap:0}
-.pt-badge{
-  position:absolute;top:2rem;left:2.5rem;
-  font-family:var(--mono);font-size:.65rem;color:var(--teal);
-  letter-spacing:.14em;text-transform:uppercase;
-  display:flex;align-items:center;gap:.7rem;
-}
-.pt-badge::before{
-  content:'';width:7px;height:7px;border-radius:50%;
-  background:var(--teal);box-shadow:0 0 10px var(--teal);
-  animation:pulse 1.6s ease infinite;
-}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.ptbadge{position:absolute;top:2rem;left:2.5rem;font-family:var(--mono);font-size:.62rem;
+  color:var(--teal);letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:.65rem}
+.ptbadge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--teal);
+  box-shadow:0 0 10px var(--teal);animation:blink 1.6s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.ptfig{margin-bottom:2.8rem;opacity:.72}
+.ptfacts{text-align:center;margin-bottom:2.4rem;display:flex;flex-direction:column;gap:.55rem}
+.ptprimary{font-size:clamp(1.4rem,4.5vw,2.3rem);font-weight:800}
+.ptwarn{font-size:clamp(.95rem,2.8vw,1.35rem);font-weight:600;color:var(--amber)}
+.ptnote{font-size:clamp(.82rem,2vw,1rem);color:var(--dim)}
+.pips{display:flex;align-items:center;gap:.6rem;margin-bottom:1.2rem}
+.pip-lbl{font-family:var(--mono);font-size:.6rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-right:.35rem}
+.pip{width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px rgba(0,212,170,.5);transition:all .3s}
+.pip.off{background:transparent;border:1.5px solid rgba(255,255,255,.16);box-shadow:none}
+.ptrule{font-family:var(--mono);font-size:.68rem;color:var(--dim);letter-spacing:.05em;margin-bottom:1.8rem}
 
-.pt-figure{margin-bottom:2.8rem;opacity:.75}
-.pt-facts{text-align:center;margin-bottom:2.5rem;display:flex;flex-direction:column;gap:.55rem}
-.pt-primary{font-size:clamp(1.5rem,4.5vw,2.4rem);font-weight:800}
-.pt-warn{font-size:clamp(1rem,2.8vw,1.45rem);font-weight:600;color:var(--amber)}
-.pt-note{font-size:clamp(.85rem,2vw,1.05rem);color:var(--dim)}
-
-.pips{display:flex;align-items:center;gap:.65rem;margin-bottom:1.3rem}
-.pip-label{font-family:var(--mono);font-size:.62rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-right:.4rem}
-.pip{width:13px;height:13px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px rgba(0,212,170,.5);transition:all .3s ease}
-.pip.off{background:transparent;border:1.5px solid rgba(255,255,255,.18);box-shadow:none}
-
-.pt-rule{font-family:var(--mono);font-size:.7rem;color:var(--dim);letter-spacing:.06em;margin-bottom:1.8rem}
-
-/* ═══ ACT 2 — INVESTIGATE ═══ */
+/* ═══ ACT 2 ═══ */
 #a2{justify-content:flex-start;padding-top:4.5rem;gap:0}
 #a2 .pips{margin-bottom:2rem}
-
-.inv-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:1.1rem;width:100%;max-width:860px;
-}
-.inv-card{
-  background:var(--bg2);border:1px solid var(--border);
-  padding:1.7rem 1.4rem;cursor:pointer;
-  transition:border-color .22s,transform .22s;
-  display:flex;flex-direction:column;gap:.9rem;
-  min-height:190px;position:relative;overflow:hidden;
-}
-.inv-card::after{
-  content:'';position:absolute;inset:0;
-  background:var(--teal-glow);opacity:0;transition:opacity .2s;
-}
-.inv-card:hover:not(.done):not(.busy)::after{opacity:1}
-.inv-card:hover:not(.done):not(.busy){border-color:rgba(0,212,170,.35);transform:translateY(-2px)}
-.inv-card.done{cursor:default;border-color:rgba(0,212,170,.2)}
-.inv-card.busy{cursor:wait;opacity:.65}
-.inv-icon{font-size:1.7rem;position:relative;z-index:1}
-.inv-title{font-size:.88rem;font-weight:600;line-height:1.4;color:var(--text);position:relative;z-index:1}
-.inv-result{
-  margin-top:auto;font-family:var(--mono);font-size:.75rem;
-  display:none;position:relative;z-index:1;
-  animation:slideup .3s ease forwards;
-  padding:.5rem .7rem;
-}
-@keyframes slideup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.inv-result.ok{color:var(--teal);background:rgba(0,212,170,.07);border-left:2px solid var(--teal)}
-.inv-result.bad{color:var(--red);background:rgba(255,68,85,.07);border-left:2px solid var(--red)}
-.inv-result.info{color:var(--amber);background:rgba(245,166,35,.07);border-left:2px solid var(--amber)}
-
-.dpills{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem;position:relative;z-index:1}
-.dpill{
-  padding:.28rem .55rem;border:1px solid var(--border);
-  background:transparent;color:var(--dim);
-  font-family:var(--mono);font-size:.62rem;cursor:pointer;
-  transition:all .15s;letter-spacing:.02em;
-}
-.dpill:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow)}
-
+.clue-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;width:100%;max-width:860px}
+.clue-card{background:var(--bg2);border:1px solid var(--border);padding:1.8rem 1.5rem;cursor:pointer;
+  transition:border-color .2s,transform .2s;display:flex;flex-direction:column;gap:.8rem;
+  min-height:200px;position:relative;overflow:hidden}
+.clue-card::after{content:'';position:absolute;inset:0;background:var(--tealg);opacity:0;transition:opacity .2s}
+.clue-card:hover:not(.done):not(.busy)::after{opacity:1}
+.clue-card:hover:not(.done):not(.busy){border-color:rgba(0,212,170,.35);transform:translateY(-2px)}
+.clue-card.done{cursor:default;border-color:rgba(0,212,170,.2)}
+.clue-card.busy{cursor:wait;opacity:.6}
+.clue-icon{font-size:1.6rem;position:relative;z-index:1}
+.clue-title{font-size:.88rem;font-weight:600;line-height:1.4;color:var(--text);position:relative;z-index:1}
+.clue-sub{font-family:var(--mono);font-size:.64rem;color:var(--dim);letter-spacing:.03em;position:relative;z-index:1}
+.clue-result{margin-top:auto;font-size:.78rem;line-height:1.55;display:none;position:relative;z-index:1;
+  padding:.6rem .8rem;animation:sli .3s ease forwards}
+@keyframes sli{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.clue-result.bad{color:var(--red);background:rgba(255,68,85,.07);border-left:2px solid var(--red)}
+.clue-result.ok{color:var(--teal);background:rgba(0,212,170,.07);border-left:2px solid var(--teal)}
+.clue-result.info{color:var(--amber);background:rgba(245,166,35,.07);border-left:2px solid var(--amber)}
+.clue-tap{font-family:var(--mono);font-size:.6rem;color:var(--dim);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:auto;position:relative;z-index:1}
+.clue-card.done .clue-tap{display:none}
 .inv-footer{margin-top:1.6rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap}
-.inv-hint{font-family:var(--mono);font-size:.65rem;color:var(--dim);letter-spacing:.04em}
+.inv-hint{font-family:var(--mono);font-size:.64rem;color:var(--dim);letter-spacing:.04em}
 
-/* ═══ ACT 3 — PRESCRIBE ═══ */
+/* ═══ ACT 3 ═══ */
 #a3{gap:2rem;text-align:center}
-.rx-label{font-size:clamp(1.1rem,3vw,1.65rem);font-weight:700;color:var(--dim)}
-.rx-select{
-  width:100%;max-width:380px;
-  background:var(--bg2);border:1.5px solid var(--border);
-  color:var(--text);font-family:var(--mono);font-size:.9rem;
-  padding:.9rem 1.4rem;appearance:none;cursor:pointer;outline:none;
-  transition:border-color .2s;
-}
-.rx-select:focus{border-color:var(--teal)}
-.rx-select option{background:var(--bg2)}
+.rx-label{font-size:clamp(1.1rem,3vw,1.6rem);font-weight:700;color:var(--dim)}
+.rx-label span{color:var(--text)}
+.drug-opts{display:flex;flex-direction:column;gap:.6rem;width:100%;max-width:440px}
+.drug-opt{background:var(--bg2);border:1.5px solid var(--border);padding:.9rem 1.3rem;
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:.82rem;transition:all .18s;text-align:left}
+.drug-opt:hover{border-color:rgba(0,212,170,.4);background:var(--tealg)}
+.drug-opt.selected{border-color:var(--teal);background:var(--tealg);color:var(--teal)}
+.drug-opt .drug-name{font-weight:700;letter-spacing:.02em}
+.drug-opt .drug-class{font-size:.62rem;color:var(--dim);margin-top:.15rem}
 .rx-row{display:flex;align-items:center;gap:1rem}
-.spin{
-  width:20px;height:20px;border:2px solid rgba(255,255,255,.15);
-  border-top-color:var(--teal);border-radius:50%;
-  animation:spin .65s linear infinite;display:none;
-}
+.spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.12);border-top-color:var(--teal);
+  border-radius:50%;animation:spin .65s linear infinite;display:none}
 .spin.on{display:block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.rx-err{font-family:var(--mono);font-size:.72rem;color:var(--red);display:none;margin-top:.3rem}
+.rx-err{font-family:var(--mono);font-size:.7rem;color:var(--red);display:none;margin-top:.5rem;max-width:400px;text-align:center}
 
-/* ═══ ACT 4 — SCORE ═══ */
+/* ═══ ACT 4 ═══ */
 #a4{gap:1.4rem;text-align:center}
-.score-big{
-  font-family:var(--mono);
-  font-size:clamp(6rem,17vw,13rem);
-  font-weight:700;line-height:1;letter-spacing:-.04em;
-  transition:color .6s,text-shadow .6s;
-}
-.score-big.red{color:var(--red);text-shadow:0 0 100px rgba(255,68,85,.38)}
-.score-big.amber{color:var(--amber);text-shadow:0 0 100px rgba(245,166,35,.38)}
-.score-big.green{color:var(--teal);text-shadow:0 0 100px rgba(0,212,170,.38)}
-
-.score-rows{width:100%;max-width:400px;display:flex;flex-direction:column;gap:.5rem}
-.srow{
-  display:flex;justify-content:space-between;align-items:center;
+.scorebig{font-family:var(--mono);font-size:clamp(6rem,17vw,13rem);font-weight:700;
+  line-height:1;letter-spacing:-.04em;transition:color .6s,text-shadow .6s}
+.scorebig.red{color:var(--red);text-shadow:0 0 100px rgba(255,68,85,.35)}
+.scorebig.amber{color:var(--amber);text-shadow:0 0 100px rgba(245,166,35,.35)}
+.scorebig.green{color:var(--teal);text-shadow:0 0 100px rgba(0,212,170,.35)}
+.srows{width:100%;max-width:400px;display:flex;flex-direction:column;gap:.45rem}
+.srow{display:flex;justify-content:space-between;align-items:center;
   padding:.55rem 1rem;background:var(--bg2);border:1px solid var(--border);
-  font-family:var(--mono);font-size:.75rem;
-  opacity:0;transform:translateX(-10px);transition:all .32s ease;
-}
+  font-family:var(--mono);font-size:.74rem;opacity:0;transform:translateX(-10px);transition:all .32s ease}
 .srow.in{opacity:1;transform:translateX(0)}
-.srow .ck{font-size:1rem;font-weight:700}
-.srow .ck.y{color:var(--teal)}
-.srow .ck.n{color:var(--red)}
-
-.verdict{
-  font-size:clamp(.95rem,2.4vw,1.3rem);font-weight:700;letter-spacing:.01em;
-  opacity:0;transition:opacity .5s ease;
-}
+.ck{font-size:1rem;font-weight:700}
+.ck.y{color:var(--teal)}.ck.n{color:var(--red)}
+.verdict{font-size:clamp(.9rem,2.4vw,1.3rem);font-weight:700;opacity:0;transition:opacity .5s}
 .verdict.in{opacity:1}
-.verdict.red{color:var(--red)}
-.verdict.amber{color:var(--amber)}
-.verdict.green{color:var(--teal)}
+.verdict.red{color:var(--red)}.verdict.amber{color:var(--amber)}.verdict.green{color:var(--teal)}
 
-/* ═══ ACT 5 — TRAINED MODEL ═══ */
-#a5{
-  justify-content:space-between;
-  padding-top:3rem;padding-bottom:2rem;
-  gap:0;
-}
-.a5-eyebrow{
-  font-family:var(--mono);font-size:.62rem;
-  color:var(--dim);letter-spacing:.14em;text-transform:uppercase;
-  margin-bottom:1.2rem;
-}
-.a5-split{
-  display:grid;grid-template-columns:1fr 1fr;
-  border:1px solid var(--border);
-  width:100%;max-width:880px;
-  flex:1;
-}
-.col-l,.col-r{padding:clamp(1.5rem,3vw,2.5rem) clamp(1.2rem,2.5vw,2rem);display:flex;flex-direction:column;gap:1rem}
+/* ═══ ACT 5 ═══ */
+#a5{justify-content:space-between;padding-top:3rem;padding-bottom:2rem;gap:0}
+.a5-eye{font-family:var(--mono);font-size:.6rem;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-bottom:1rem}
+.a5-split{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);width:100%;max-width:880px;flex:1}
+.col-l,.col-r{padding:clamp(1.4rem,2.5vw,2.2rem) clamp(1rem,2vw,1.8rem);display:flex;flex-direction:column;gap:.9rem}
 .col-l{background:rgba(255,68,85,.04);border-right:1px solid var(--border)}
 .col-r{background:rgba(0,212,170,.04)}
-
-.col-tag{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:.3rem}
-.col-l .col-tag{color:var(--red)}
-.col-r .col-tag{color:var(--teal)}
-
-.col-drug{font-family:var(--mono);font-size:clamp(1rem,2.5vw,1.5rem);font-weight:700;line-height:1.3}
-.col-l .col-drug{color:rgba(255,68,85,.55)}
-.col-r .col-drug{color:var(--teal)}
-
-.col-score{font-family:var(--mono);font-size:clamp(2.8rem,7vw,4.5rem);font-weight:700;line-height:1;letter-spacing:-.02em}
-.col-l .col-score{color:var(--red);opacity:.8}
-.col-r .col-score{color:var(--teal)}
-
-.col-note{font-size:.82rem;line-height:1.55;color:rgba(255,68,85,.65)}
-
-.steps{display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem}
-.step{
-  font-family:var(--mono);font-size:.72rem;line-height:1.4;
-  opacity:0;transform:translateX(10px);transition:all .4s ease;
-  display:flex;align-items:flex-start;gap:.55rem;
-}
-.step::before{content:'›';opacity:.5;flex-shrink:0;margin-top:.05em}
+.col-tag{font-family:var(--mono);font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;opacity:.5;margin-bottom:.2rem}
+.col-l .col-tag{color:var(--red)}.col-r .col-tag{color:var(--teal)}
+.col-drug{font-family:var(--mono);font-size:clamp(.95rem,2.3vw,1.4rem);font-weight:700;line-height:1.3}
+.col-l .col-drug{color:rgba(255,68,85,.5)}.col-r .col-drug{color:var(--teal)}
+.col-sc{font-family:var(--mono);font-size:clamp(2.5rem,6.5vw,4.2rem);font-weight:700;line-height:1;letter-spacing:-.02em}
+.col-l .col-sc{color:var(--red);opacity:.75}.col-r .col-sc{color:var(--teal)}
+.col-note{font-size:.8rem;line-height:1.55;color:rgba(255,68,85,.6)}
+.steps{display:flex;flex-direction:column;gap:.45rem;margin-top:.3rem}
+.step{font-family:var(--mono);font-size:.7rem;line-height:1.4;opacity:0;transform:translateX(8px);
+  transition:all .38s ease;display:flex;align-items:flex-start;gap:.5rem}
+.step::before{content:'›';opacity:.4;flex-shrink:0;margin-top:.05em}
 .step.in{opacity:1;transform:translateX(0)}
-.step.in.bad{color:var(--red)}
-.step.in.ok{color:var(--teal)}
-.step.in.info{color:var(--amber)}
-
-#trained-rx{opacity:0;transition:opacity .55s ease}
-#trained-rx.in{opacity:1}
-#trained-sc{opacity:0;transition:opacity .55s ease;font-size:clamp(2.8rem,7vw,4.5rem);font-family:var(--mono);font-weight:700;line-height:1;color:var(--teal)}
-#trained-sc.in{opacity:1}
-
-.a5-foot{text-align:center;max-width:700px;margin-top:1.5rem}
-.final-line{
-  font-size:clamp(.95rem,2.4vw,1.4rem);font-weight:700;
-  color:var(--text);line-height:1.6;margin-bottom:1.4rem;
-}
-.final-line em{color:var(--teal);font-style:normal}
+.step.in.bad{color:var(--red)}.step.in.ok{color:var(--teal)}.step.in.info{color:var(--amber)}
+#trx{opacity:0;transition:opacity .5s}#trx.in{opacity:1}
+#tsc{opacity:0;transition:opacity .5s;font-family:var(--mono);font-weight:700;
+  font-size:clamp(2.5rem,6.5vw,4.2rem);line-height:1;color:var(--teal)}
+#tsc.in{opacity:1}
+.a5-foot{text-align:center;max-width:700px;margin-top:1.4rem}
+.finalline{font-size:clamp(.9rem,2.3vw,1.35rem);font-weight:700;color:var(--text);line-height:1.6;margin-bottom:1.4rem}
+.finalline em{color:var(--teal);font-style:normal}
 .a5-btns{display:flex;gap:.9rem;justify-content:center;flex-wrap:wrap}
 
-/* ── RESPONSIVE ── */
-@media(max-width:680px){
-  .inv-grid{grid-template-columns:1fr}
+@media(max-width:660px){
+  .clue-grid{grid-template-columns:1fr}
   .a5-split{grid-template-columns:1fr}
   .col-l{border-right:none;border-bottom:1px solid var(--border)}
 }
@@ -287,152 +173,102 @@ body::before{
 </head>
 <body>
 
-<!-- ═══════════ ACT 0 — INTRO ═══════════ -->
+<!-- ═══ ACT 0 — INTRO ═══ -->
 <div class="act" id="a0">
-  <div id="a0-n" class="big-number">1,270,000</div>
+  <div id="a0-n" class="bignumber">1,270,000</div>
   <div id="a0-s" class="intro-sub">people die every year from the wrong antibiotic</div>
   <div id="a0-q" class="intro-q">Can an AI learn to prescribe the right one?</div>
   <div id="a0-b"><button class="btn lg" onclick="go(1)">See for yourself →</button></div>
 </div>
 
-<!-- ═══════════ ACT 1 — PATIENT ═══════════ -->
+<!-- ═══ ACT 1 — PATIENT ═══ -->
 <div class="act" id="a1">
-  <div class="pt-badge">PATIENT 1047-F &nbsp;·&nbsp; LIVE</div>
-
-  <svg class="pt-figure" width="110" height="155" viewBox="0 0 110 155" fill="none">
-    <circle cx="55" cy="26" r="20" stroke="#00d4aa" stroke-width="1.4" fill="none" opacity=".6"/>
-    <path d="M34 72 Q34 54 55 50 Q76 54 76 72 L79 136 Q79 144 71 144 L65 144 L63 106 Q59 101 55 101 Q51 101 47 106 L45 144 L39 144 Q31 144 31 136 Z"
-      stroke="#00d4aa" stroke-width="1.4" fill="rgba(0,212,170,0.05)" opacity=".65"/>
-    <line x1="34" y1="76" x2="16" y2="106" stroke="#00d4aa" stroke-width="1.4" opacity=".4"/>
-    <line x1="76" y1="76" x2="94" y2="106" stroke="#00d4aa" stroke-width="1.4" opacity=".4"/>
-    <!-- heartbeat -->
-    <polyline points="4,126 22,126 28,114 35,138 42,118 49,126 106,126"
-      stroke="#ff4455" stroke-width="1.3" fill="none" opacity=".55"
-      stroke-dasharray="220" stroke-dashoffset="220">
-      <animate attributeName="stroke-dashoffset" from="220" to="0" dur="1.4s" begin=".6s" fill="freeze"/>
+  <div class="ptbadge" id="ptbadge">PATIENT ????</div>
+  <svg class="ptfig" width="108" height="152" viewBox="0 0 108 152" fill="none">
+    <circle cx="54" cy="25" r="19" stroke="#00d4aa" stroke-width="1.3" fill="none" opacity=".6"/>
+    <path d="M33 69Q33 52 54 49Q75 52 75 69L78 133Q78 141 70 141L64 141L62 104Q58 99 54 99Q50 99 46 104L44 141L38 141Q30 141 30 133Z"
+      stroke="#00d4aa" stroke-width="1.3" fill="rgba(0,212,170,0.05)" opacity=".65"/>
+    <line x1="33" y1="73" x2="16" y2="102" stroke="#00d4aa" stroke-width="1.3" opacity=".38"/>
+    <line x1="75" y1="73" x2="92" y2="102" stroke="#00d4aa" stroke-width="1.3" opacity=".38"/>
+    <polyline id="hbeat" points="4,123 20,123 26,112 33,135 40,115 47,123 104,123"
+      stroke="#ff4455" stroke-width="1.2" fill="none" opacity=".5"
+      stroke-dasharray="215" stroke-dashoffset="215">
+      <animate attributeName="stroke-dashoffset" from="215" to="0" dur="1.3s" begin=".7s" fill="freeze"/>
     </polyline>
   </svg>
-
-  <div class="pt-facts">
-    <div class="pt-primary">67. Female. ICU.</div>
-    <div class="pt-warn">Drug-resistant bloodstream infection.</div>
-    <div class="pt-note">Kidneys not working well.</div>
+  <div class="ptfacts">
+    <div class="ptprimary" id="pt-primary">–</div>
+    <div class="ptwarn" id="pt-warn">–</div>
+    <div class="ptnote" id="pt-note">–</div>
   </div>
-
   <div class="pips">
-    <span class="pip-label">Investigations</span>
+    <span class="pip-lbl">Clues</span>
     <div class="pip" id="p1a"></div><div class="pip" id="p1b"></div><div class="pip" id="p1c"></div>
   </div>
-  <div class="pt-rule">3 investigations. Then you must prescribe.</div>
-  <button class="btn" onclick="startInv()">Begin →</button>
+  <div class="ptrule">Reveal 3 clues. Then you decide.</div>
+  <button class="btn" onclick="go(2)">Begin →</button>
 </div>
 
-<!-- ═══════════ ACT 2 — INVESTIGATE ═══════════ -->
+<!-- ═══ ACT 2 — CLUES ═══ -->
 <div class="act" id="a2">
   <div class="pips" style="margin-bottom:1.8rem">
-    <span class="pip-label">Budget</span>
-    <div class="pip" id="p2a"></div><div class="pip" id="p2b"></div><div class="pip" id="p2c"></div>
+    <span class="pip-lbl">Clues revealed</span>
+    <div class="pip off" id="p2a"></div><div class="pip off" id="p2b"></div><div class="pip off" id="p2c"></div>
   </div>
-
-  <div class="inv-grid">
-    <!-- Card 1 -->
-    <div class="inv-card" id="ic1" onclick="openDrugPicker()">
-      <div class="inv-icon">🔬</div>
-      <div class="inv-title">Does a drug kill this bacteria?</div>
-      <div class="dpills" id="dpills" style="display:none">
-        <button class="dpill" onclick="ev();runR('meropenem')">meropenem</button>
-        <button class="dpill" onclick="ev();runR('ceftazidime-avibactam')">ceft-avibactam</button>
-        <button class="dpill" onclick="ev();runR('colistin')">colistin</button>
-        <button class="dpill" onclick="ev();runR('ceftriaxone')">ceftriaxone</button>
-        <button class="dpill" onclick="ev();runR('ciprofloxacin')">cipro</button>
-        <button class="dpill" onclick="ev();runR('meropenem-vaborbactam')">mer-vaborbactam</button>
-      </div>
-      <div class="inv-result" id="r1"></div>
-    </div>
-
-    <!-- Card 2 -->
-    <div class="inv-card" id="ic2" onclick="runG()">
-      <div class="inv-icon">📋</div>
-      <div class="inv-title">What do the experts recommend for this infection?</div>
-      <div class="inv-result" id="r2"></div>
-    </div>
-
-    <!-- Card 3 -->
-    <div class="inv-card" id="ic3" onclick="runD()">
-      <div class="inv-icon">💉</div>
-      <div class="inv-title">Is standard dosing safe for her kidneys?</div>
-      <div class="inv-result" id="r3"></div>
-    </div>
+  <div class="clue-grid" id="clue-grid">
+    <!-- filled by JS -->
   </div>
-
   <div class="inv-footer">
-    <button class="btn" id="rxbtn" disabled onclick="go(3)">Prescribe →</button>
-    <span class="inv-hint" id="inv-hint">Use all 3 investigations first</span>
-    <button class="btn red" onclick="go(3)" style="opacity:.45">Skip →</button>
+    <button class="btn" id="rxbtn" disabled onclick="go(3)">Choose a drug →</button>
+    <span class="inv-hint" id="inv-hint">Reveal all 3 clues first</span>
   </div>
 </div>
 
-<!-- ═══════════ ACT 3 — PRESCRIBE ═══════════ -->
+<!-- ═══ ACT 3 — PRESCRIBE ═══ -->
 <div class="act" id="a3">
-  <div class="rx-label">You've investigated. Now prescribe.</div>
-  <select class="rx-select" id="drugsel">
-    <option value="">— Choose a drug —</option>
-    <option value="meropenem">Meropenem</option>
-    <option value="ceftazidime-avibactam">Ceftazidime-avibactam</option>
-    <option value="colistin">Colistin</option>
-    <option value="meropenem-vaborbactam">Meropenem-vaborbactam</option>
-    <option value="ceftriaxone">Ceftriaxone</option>
-    <option value="ciprofloxacin">Ciprofloxacin</option>
-  </select>
+  <div class="rx-label">Based on the clues —<br><span>which drug do you prescribe?</span></div>
+  <div class="drug-opts" id="drug-opts"><!-- filled by JS --></div>
   <div class="rx-row">
-    <button class="btn lg" id="rxcommit" onclick="commit()">Prescribe</button>
+    <button class="btn lg" id="rxcommit" disabled onclick="commit()">Prescribe</button>
     <div class="spin" id="rxspin"></div>
   </div>
   <div class="rx-err" id="rxerr"></div>
 </div>
 
-<!-- ═══════════ ACT 4 — YOUR SCORE ═══════════ -->
+<!-- ═══ ACT 4 — SCORE ═══ -->
 <div class="act" id="a4">
-  <div class="score-big" id="scorebig">0.00</div>
-  <div class="score-rows">
-    <div class="srow" id="sr0"><span>Drug kills this bacteria</span><span class="ck" id="ck0">—</span></div>
+  <div class="scorebig" id="scorebig">0.00</div>
+  <div class="srows">
+    <div class="srow" id="sr0"><span>Drug works on this bacteria</span><span class="ck" id="ck0">—</span></div>
     <div class="srow" id="sr1"><span>Expert recommended</span><span class="ck" id="ck1">—</span></div>
     <div class="srow" id="sr2"><span>Safest available option</span><span class="ck" id="ck2">—</span></div>
-    <div class="srow" id="sr3"><span>Right dose for her kidneys</span><span class="ck" id="ck3">—</span></div>
+    <div class="srow" id="sr3"><span>Right dose for this patient</span><span class="ck" id="ck3">—</span></div>
   </div>
   <div class="verdict" id="verd"></div>
   <button class="btn lg" onclick="go(5)">See what the trained AI does →</button>
 </div>
 
-<!-- ═══════════ ACT 5 — TRAINED MODEL ═══════════ -->
+<!-- ═══ ACT 5 — TRAINED MODEL ═══ -->
 <div class="act" id="a5">
-  <div class="a5-eyebrow">Same patient. Same environment.</div>
-
+  <div class="a5-eye">Same patient. Same environment.</div>
   <div class="a5-split">
     <div class="col-l">
       <div class="col-tag">Without training — blind guess</div>
-      <div class="col-drug">MEROPENEM<br><span style="font-size:.65em;opacity:.5">1g IV q8h</span></div>
-      <div class="col-score">0.12</div>
-      <div class="col-note">This strain is fully resistant. The drug has zero effect. Treatment fails.</div>
+      <div class="col-drug" id="a5-bad-drug">–</div>
+      <div class="col-sc" id="a5-bad-sc">–</div>
+      <div class="col-note" id="a5-bad-note">–</div>
     </div>
     <div class="col-r">
-      <div class="col-tag">After GRPO training — 3 tool calls</div>
-      <div class="steps">
-        <div class="step" id="st0">Checked meropenem → INEFFECTIVE ✗</div>
-        <div class="step" id="st1">Checked expert guidelines → ceftazidime-avibactam ✓</div>
-        <div class="step" id="st2">Checked kidney function → reduce dose to q12h ✓</div>
-      </div>
-      <div id="trained-rx" class="col-drug">
-        CEFTAZIDIME-AVIBACTAM<br><span style="font-size:.65em;opacity:.8">2.5g IV q12h</span>
-      </div>
-      <div id="trained-sc">0.91</div>
+      <div class="col-tag">After GRPO training</div>
+      <div class="steps" id="a5-steps"><!-- filled by JS --></div>
+      <div id="trx" class="col-drug">–</div>
+      <div id="tsc">–</div>
     </div>
   </div>
-
   <div class="a5-foot">
-    <div class="final-line">0.12 → <em>0.91</em>. Same patient.<br>The difference is whether she survives.</div>
+    <div class="finalline" id="a5-finalline">–</div>
     <div class="a5-btns">
-      <button class="btn" onclick="reset()">Try again →</button>
+      <button class="btn" onclick="newCase()">Try another case →</button>
       <a class="btn red" href="https://huggingface.co/saaheerpurav/amr-steward-model" target="_blank">How it was trained →</a>
     </div>
   </div>
@@ -440,23 +276,105 @@ body::before{
 
 <script>
 const API = 'https://saaheerpurav-amr-steward.hf.space';
-const PT = {
-  age:67,sex:"F",infection_site:"bacteremia",organism:"K. pneumoniae",
-  creatinine_clearance:35.0,allergies:[],phenotype:"resistant",curriculum_level:2,
-  antibiogram:{"meropenem":8.0,"ceftazidime-avibactam":1.0,"colistin":1.0,
-    "meropenem-vaborbactam":1.0,"ceftriaxone":32.0,"ciprofloxacin":16.0}
-};
-const DOSES = {
-  "meropenem":"1g IV q8h","ceftazidime-avibactam":"2.5g IV q12h",
-  "colistin":"2.5 MU IV q12h","meropenem-vaborbactam":"2g/2g IV q8h",
-  "ceftriaxone":"2g IV q24h","ciprofloxacin":"400mg IV q12h"
-};
 
-let budget = 0;
+/* ── CASE DEFINITIONS ─────────────────────────────────────── */
+const CASES = [
+  {
+    id: 'cre',
+    badge: 'PATIENT 1047-F',
+    primary: '67. Female. ICU.',
+    warn:    'Drug-resistant bloodstream infection.',
+    note:    'Kidneys not working well.',
+    clues: [
+      { icon:'🧬', title:'What is this bacteria?',
+        sub:'Click to analyse the culture results',
+        result:'Klebsiella pneumoniae in the bloodstream — a drug-resistant superbug. Most antibiotics that doctors reach for first will not work against this strain.',
+        cls:'bad', tool:'interpret_resistance', arg:'meropenem' },
+      { icon:'📋', title:'What do the guidelines say?',
+        sub:'Click to check expert recommendations',
+        result:'For resistant K. pneumoniae bloodstream infections, medical guidelines recommend ceftazidime-avibactam as first-line treatment.',
+        cls:'info', tool:'check_guideline', arg:'bacteremia' },
+      { icon:'💊', title:'What can this patient handle?',
+        sub:'Click to assess patient-specific factors',
+        result:'Kidneys functioning at ~35% of normal. Any drug prescribed needs dose reduction — standard doses will accumulate to dangerous levels.',
+        cls:'info', tool:'assess_patient_factors', arg:'' },
+    ],
+    patient: {age:67,sex:"F",infection_site:"bacteremia",organism:"K. pneumoniae",
+      creatinine_clearance:35.0,allergies:[],phenotype:"resistant",curriculum_level:2,
+      antibiogram:{"meropenem":8.0,"ceftazidime-avibactam":1.0,"colistin":1.0,
+        "meropenem-vaborbactam":1.0,"ceftriaxone":32.0,"ciprofloxacin":16.0}},
+    drugs: [
+      {val:'meropenem',          name:'Meropenem',           cls:'Most commonly used for serious infections'},
+      {val:'ceftazidime-avibactam', name:'Ceftazidime-avibactam', cls:'Targeted at resistant strains'},
+      {val:'ceftriaxone',        name:'Ceftriaxone',         cls:'Common broad-spectrum antibiotic'},
+      {val:'colistin',           name:'Colistin',            cls:'Last-resort antibiotic'},
+      {val:'ciprofloxacin',      name:'Ciprofloxacin',       cls:'Fluoroquinolone antibiotic'},
+      {val:'meropenem-vaborbactam', name:'Meropenem-vaborbactam', cls:'Carbapenem with resistance-blocker'},
+    ],
+    doses: {"meropenem":"1g IV q8h","ceftazidime-avibactam":"2.5g IV q12h","colistin":"2.5 MU IV q12h",
+      "meropenem-vaborbactam":"2g/2g IV q8h","ceftriaxone":"2g IV q24h","ciprofloxacin":"400mg IV q12h"},
+    bad_drug:'MEROPENEM', bad_dose:'1g IV q8h',
+    bad_note:'This strain is fully resistant to meropenem. The drug has zero effect. Treatment fails.',
+    bad_sc:0.12,
+    trained_steps:[
+      {t:'Checked meropenem → RESISTANT ✗',   cls:'bad'},
+      {t:'Checked expert guidelines → ceftazidime-avibactam ✓', cls:'ok'},
+      {t:'Checked kidney function → reduce to q12h ✓', cls:'ok'},
+    ],
+    trained_drug:'CEFTAZIDIME-AVIBACTAM', trained_dose:'2.5g IV q12h', trained_sc:0.91,
+    final:`0.12 → <em>0.91</em>. Same patient.<br>The difference is whether she survives.`,
+  },
+  {
+    id: 'vre',
+    badge: 'PATIENT 2198-F',
+    primary: '72. Female. On dialysis.',
+    warn:    'Drug-resistant bloodstream infection.',
+    note:    'Kidneys non-functional.',
+    clues: [
+      { icon:'🧬', title:'What is this bacteria?',
+        sub:'Click to analyse the culture results',
+        result:'Enterococcus faecium — vancomycin-resistant (VRE). Vancomycin is the standard drug for this type of infection, but this strain defeats it entirely.',
+        cls:'bad', tool:'interpret_resistance', arg:'vancomycin' },
+      { icon:'📋', title:'What do the guidelines say?',
+        sub:'Click to check expert recommendations',
+        result:'For vancomycin-resistant Enterococcus bloodstream infections, experts recommend high-dose daptomycin as the first-line treatment.',
+        cls:'info', tool:'check_guideline', arg:'bacteremia' },
+      { icon:'💊', title:'What can this patient handle?',
+        sub:'Click to assess patient-specific factors',
+        result:'On hemodialysis — kidneys essentially non-functional. Drug must be given after each dialysis session. Many antibiotics are unsafe or eliminated by dialysis.',
+        cls:'info', tool:'assess_patient_factors', arg:'' },
+    ],
+    patient: {age:72,sex:"F",infection_site:"bacteremia",organism:"Enterococcus",
+      creatinine_clearance:8.0,allergies:[],phenotype:"resistant",curriculum_level:3,
+      antibiogram:{"vancomycin":32.0,"daptomycin":1.0,"linezolid":2.0,"ampicillin":64.0}},
+    drugs: [
+      {val:'vancomycin',  name:'Vancomycin',  cls:'Standard treatment for this type of bacteria'},
+      {val:'daptomycin',  name:'Daptomycin',  cls:'Works on resistant strains, kidney-safe'},
+      {val:'linezolid',   name:'Linezolid',   cls:'Oral/IV option for resistant bacteria'},
+      {val:'ampicillin',  name:'Ampicillin',  cls:'Common penicillin antibiotic'},
+    ],
+    doses: {"vancomycin":"1g IV q12h","daptomycin":"8mg/kg IV post-HD","linezolid":"600mg IV q12h","ampicillin":"2g IV q4h"},
+    bad_drug:'VANCOMYCIN', bad_dose:'1g IV q12h',
+    bad_note:'Vancomycin MIC=32 — fully resistant. This is the standard drug but it has zero effect on this strain.',
+    bad_sc:0.08,
+    trained_steps:[
+      {t:'Checked vancomycin → RESISTANT ✗', cls:'bad'},
+      {t:'Checked expert guidelines → daptomycin ✓', cls:'ok'},
+      {t:'Checked kidney function → post-HD dosing ✓', cls:'ok'},
+    ],
+    trained_drug:'DAPTOMYCIN', trained_dose:'8mg/kg IV post-HD', trained_sc:0.88,
+    final:`0.08 → <em>0.88</em>. Same patient.<br>The difference is whether she survives.`,
+  },
+];
+
+/* ── STATE ─────────────────────────────────────────────────── */
+let C = null;          // current case
+let cluesRevealed = 0;
 let invDone = [];
+let selectedDrug = null;
 let currentAct = -1;
 
-// ── Navigation ──
+/* ── NAVIGATION ────────────────────────────────────────────── */
 function go(n) {
   if (currentAct === n) return;
   const prev = document.getElementById('a' + currentAct);
@@ -467,14 +385,139 @@ function go(n) {
     next.classList.add('active');
     currentAct = n;
     if (n === 5) revealA5();
-  }, 320);
+  }, 300);
 }
 
-// ── API ──
+/* ── CASE SETUP ────────────────────────────────────────────── */
+function loadCase(c) {
+  C = c;
+  cluesRevealed = 0;
+  invDone = [];
+  selectedDrug = null;
+
+  // Act 1
+  document.getElementById('ptbadge').textContent = c.badge;
+  document.getElementById('pt-primary').textContent = c.primary;
+  document.getElementById('pt-warn').textContent = c.warn;
+  document.getElementById('pt-note').textContent = c.note;
+  ['p1a','p1b','p1c'].forEach(id => document.getElementById(id).classList.remove('off'));
+
+  // Act 2 — build clue cards
+  const grid = document.getElementById('clue-grid');
+  grid.innerHTML = '';
+  c.clues.forEach((cl, i) => {
+    const div = document.createElement('div');
+    div.className = 'clue-card';
+    div.id = 'cc' + i;
+    div.innerHTML = `
+      <div class="clue-icon">${cl.icon}</div>
+      <div class="clue-title">${cl.title}</div>
+      <div class="clue-sub">${cl.sub}</div>
+      <div class="clue-result" id="cr${i}"></div>
+      <div class="clue-tap">↑ tap to reveal</div>`;
+    div.onclick = () => revealClue(i);
+    grid.appendChild(div);
+  });
+
+  ['p2a','p2b','p2c'].forEach(id => document.getElementById(id).classList.add('off'));
+  document.getElementById('rxbtn').disabled = true;
+  document.getElementById('inv-hint').textContent = 'Reveal all 3 clues first';
+
+  // Act 3 — build drug options
+  const opts = document.getElementById('drug-opts');
+  opts.innerHTML = '';
+  c.drugs.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'drug-opt';
+    div.dataset.val = d.val;
+    div.innerHTML = `<div><div class="drug-name">${d.name}</div><div class="drug-class">${d.cls}</div></div><span style="opacity:.35;font-size:.9em">○</span>`;
+    div.onclick = () => selectDrug(d.val);
+    opts.appendChild(div);
+  });
+  document.getElementById('rxcommit').disabled = true;
+  document.getElementById('rxerr').style.display = 'none';
+
+  // Act 4 reset
+  ['sr0','sr1','sr2','sr3'].forEach(id => {
+    document.getElementById(id).classList.remove('in');
+    const i = id.replace('sr','');
+    document.getElementById('ck'+i).textContent = '—';
+    document.getElementById('ck'+i).className = 'ck';
+  });
+  document.getElementById('scorebig').textContent = '0.00';
+  document.getElementById('scorebig').className = 'scorebig';
+  const v = document.getElementById('verd');
+  v.className = 'verdict'; v.textContent = '';
+
+  // Act 5 reset
+  document.getElementById('a5-bad-drug').textContent = c.bad_drug + '\n' + c.bad_dose;
+  document.getElementById('a5-bad-sc').textContent = c.bad_sc.toFixed(2);
+  document.getElementById('a5-bad-note').textContent = c.bad_note;
+  const steps = document.getElementById('a5-steps');
+  steps.innerHTML = '';
+  c.trained_steps.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'step'; d.id = 'st'+i;
+    d.innerHTML = `<span>${s.t}</span>`;
+    steps.appendChild(d);
+  });
+  document.getElementById('trx').className = 'col-drug';
+  document.getElementById('trx').innerHTML = `${c.trained_drug}<br><span style="font-size:.65em;opacity:.8">${c.trained_dose}</span>`;
+  document.getElementById('tsc').className = '';
+  document.getElementById('tsc').textContent = c.trained_sc.toFixed(2);
+  document.getElementById('a5-finalline').innerHTML = c.final;
+}
+
+function selectDrug(val) {
+  selectedDrug = val;
+  document.querySelectorAll('.drug-opt').forEach(el => {
+    const picked = el.dataset.val === val;
+    el.classList.toggle('selected', picked);
+    el.querySelector('span').textContent = picked ? '●' : '○';
+  });
+  document.getElementById('rxcommit').disabled = false;
+}
+
+/* ── CLUE REVEAL ───────────────────────────────────────────── */
+async function revealClue(i) {
+  const card = document.getElementById('cc' + i);
+  if (!card || card.classList.contains('done') || card.classList.contains('busy')) return;
+  card.classList.add('busy');
+
+  const cl = C.clues[i];
+  try {
+    await apiStep({action_type:"INVESTIGATE", tool_name:cl.tool, tool_arg:cl.arg});
+    invDone.push({tool:cl.tool, arg:cl.arg});
+  } catch(e) {
+    // Show clue text even if API is unreachable — fallback to pre-written result
+    invDone.push({tool:cl.tool, arg:cl.arg});
+  }
+
+  const res = document.getElementById('cr' + i);
+  res.className = 'clue-result ' + cl.cls;
+  res.textContent = cl.result;
+  res.style.display = 'block';
+  card.classList.remove('busy');
+  card.classList.add('done');
+
+  cluesRevealed++;
+  const pipIds = ['p2a','p2b','p2c'];
+  document.getElementById(pipIds[cluesRevealed - 1]).classList.remove('off');
+  ['p1a','p1b','p1c'][cluesRevealed - 1] && document.getElementById(['p1a','p1b','p1c'][cluesRevealed - 1]).classList.add('off');
+
+  if (cluesRevealed >= 3) {
+    document.getElementById('rxbtn').disabled = false;
+    document.getElementById('inv-hint').textContent = 'All clues revealed. Ready to prescribe.';
+  } else {
+    document.getElementById('inv-hint').textContent = `${3 - cluesRevealed} clue${3-cluesRevealed>1?'s':''} remaining`;
+  }
+}
+
+/* ── API ───────────────────────────────────────────────────── */
 async function apiReset() {
   const r = await fetch(`${API}/reset`, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({curriculum_level:2, patient:PT})
+    body: JSON.stringify({curriculum_level: C.patient.curriculum_level, patient: C.patient})
   });
   if (!r.ok) throw new Error('reset ' + r.status);
   return r.json();
@@ -488,104 +531,9 @@ async function apiStep(action) {
   return r.json();
 }
 
-// ── Investigation ──
-async function startInv() {
-  try { await apiReset(); } catch(e) {}
-  go(2);
-}
-
-function syncPips() {
-  ['p1a','p1b','p1c','p2a','p2b','p2c'].forEach((id,i) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const idx = i % 3;
-    el.classList.toggle('off', idx < budget);
-  });
-  const btn = document.getElementById('rxbtn');
-  const hint = document.getElementById('inv-hint');
-  if (budget >= 3) {
-    btn.disabled = false;
-    hint.textContent = 'All done. Ready to prescribe.';
-  } else {
-    hint.textContent = `${3 - budget} investigation${3 - budget > 1 ? 's' : ''} remaining`;
-  }
-}
-
-function markCard(cardId, resultId, cls, text) {
-  const c = document.getElementById(cardId);
-  const r = document.getElementById(resultId);
-  c.classList.remove('busy'); c.classList.add('done');
-  r.className = 'inv-result ' + cls;
-  r.textContent = text;
-  r.style.display = 'block';
-  budget++;
-  syncPips();
-}
-
-function openDrugPicker() {
-  const c = document.getElementById('ic1');
-  if (c.classList.contains('done') || c.classList.contains('busy')) return;
-  const p = document.getElementById('dpills');
-  p.style.display = p.style.display === 'none' ? 'flex' : 'none';
-}
-function ev() { event.stopPropagation(); }
-
-async function runR(drug) {
-  const c = document.getElementById('ic1');
-  if (c.classList.contains('done') || c.classList.contains('busy')) return;
-  c.classList.add('busy');
-  document.getElementById('dpills').style.display = 'none';
-  try {
-    const resp = await apiStep({action_type:"INVESTIGATE",tool_name:"interpret_resistance",tool_arg:drug});
-    const raw = (resp.observation?.tool_results || []).slice(-1)[0] || '';
-    const resistant = /Resistant/i.test(raw);
-    const susceptible = /Susceptible/i.test(raw) && !/Intermediate/i.test(raw);
-    if (resistant) markCard('ic1','r1','bad', drug.toUpperCase() + ': INEFFECTIVE ✗');
-    else if (susceptible) markCard('ic1','r1','ok', drug.toUpperCase() + ': WORKS ✓');
-    else markCard('ic1','r1','info', drug.toUpperCase() + ': INTERMEDIATE');
-    invDone.push({tool:'interpret_resistance',arg:drug});
-  } catch(e) {
-    document.getElementById('ic1').classList.remove('busy');
-    markCard('ic1','r1','bad', drug.toUpperCase() + ': INEFFECTIVE ✗');
-    invDone.push({tool:'interpret_resistance',arg:drug});
-  }
-}
-
-async function runG() {
-  const c = document.getElementById('ic2');
-  if (c.classList.contains('done') || c.classList.contains('busy')) return;
-  c.classList.add('busy');
-  try {
-    const resp = await apiStep({action_type:"INVESTIGATE",tool_name:"check_guideline",tool_arg:"bacteremia"});
-    const raw = (resp.observation?.tool_results || []).slice(-1)[0] || '';
-    const m = raw.match(/first.line[:\s]+([^\n\.]+)/i) || raw.match(/(?:use|preferred|recommend)[:\s]+([^\n\.]+)/i);
-    const rec = m ? m[1].trim().split(/[,;]/)[0].trim() : 'ceftazidime-avibactam';
-    markCard('ic2','r2','info', 'Experts say: ' + rec);
-    invDone.push({tool:'check_guideline',arg:'bacteremia'});
-  } catch(e) {
-    markCard('ic2','r2','info','Experts say: ceftazidime-avibactam');
-    invDone.push({tool:'check_guideline',arg:'bacteremia'});
-  }
-}
-
-async function runD() {
-  const c = document.getElementById('ic3');
-  if (c.classList.contains('done') || c.classList.contains('busy')) return;
-  c.classList.add('busy');
-  try {
-    await apiStep({action_type:"INVESTIGATE",tool_name:"assess_patient_factors",tool_arg:""});
-    markCard('ic3','r3','info','Kidneys at ~35% capacity — reduce dosing frequency');
-    invDone.push({tool:'assess_patient_factors',arg:''});
-  } catch(e) {
-    markCard('ic3','r3','info','Kidneys at ~35% capacity — reduce dosing frequency');
-    invDone.push({tool:'assess_patient_factors',arg:''});
-  }
-}
-
-// ── Commit ──
+/* ── COMMIT ────────────────────────────────────────────────── */
 async function commit() {
-  const drug = document.getElementById('drugsel').value;
-  if (!drug) return;
+  if (!selectedDrug) return;
   const btn = document.getElementById('rxcommit');
   const spin = document.getElementById('rxspin');
   const err = document.getElementById('rxerr');
@@ -593,130 +541,95 @@ async function commit() {
   try {
     await apiReset();
     for (const inv of invDone) {
-      await apiStep({action_type:"INVESTIGATE",tool_name:inv.tool,tool_arg:inv.arg});
+      await apiStep({action_type:"INVESTIGATE", tool_name:inv.tool, tool_arg:inv.arg});
     }
     const resp = await apiStep({
       action_type:"COMMIT",
-      prescription:{drug,dose:DOSES[drug]||'standard dose',duration:'14 days',justification:'user demo'}
+      prescription:{drug:selectedDrug, dose:C.doses[selectedDrug]||'standard dose',
+        duration:'14 days', justification:'user demo'}
     });
-    const reward = resp.reward ?? 0;
-    const bd = resp.observation?.metadata?.reward_breakdown ?? {};
-    revealScore(reward, bd);
+    revealScore(resp.reward ?? 0, resp.observation?.metadata?.reward_breakdown ?? {});
   } catch(e) {
-    err.textContent = 'Could not reach the environment. Make sure the HF Space is awake.';
+    err.textContent = 'Could not reach the environment. Is the HF Space awake?';
     err.style.display = 'block';
     btn.disabled = false;
   } finally {
     spin.classList.remove('on');
-    btn.disabled = false;
+    if (!document.getElementById('rxerr').style.display || document.getElementById('rxerr').style.display === 'none') {
+      btn.disabled = false;
+    }
   }
 }
 
-// ── Score ──
+/* ── SCORE REVEAL ──────────────────────────────────────────── */
 function revealScore(score, bd) {
   const el = document.getElementById('scorebig');
   const cls = score < 0.5 ? 'red' : score < 0.85 ? 'amber' : 'green';
-  el.className = 'score-big ' + cls;
-
-  let cur = 0; const t0 = Date.now(); const dur = 1100;
-  const tick = () => {
-    const p = Math.min(1,(Date.now()-t0)/dur);
-    const e = 1-Math.pow(1-p,3);
-    el.textContent = (score * e).toFixed(2);
-    if (p < 1) requestAnimationFrame(tick); else el.textContent = score.toFixed(2);
-  };
-  tick();
-
-  const checks = [
-    (bd.R1_activity ?? 0) >= 0.9,
-    (bd.R2_guideline ?? 0) >= 0.9,
-    (bd.R3_stewardship ?? 0) >= 0.9,
-    (bd.R4_dose ?? 0) >= 0.9,
-  ];
-  checks.forEach((pass, i) => {
+  el.className = 'scorebig ' + cls;
+  animNum(el, 0, score, 1100);
+  [['R1_activity',0],['R2_guideline',1],['R3_stewardship',2],['R4_dose',3]].forEach(([k,i]) => {
     setTimeout(() => {
-      document.getElementById('sr' + i).classList.add('in');
-      const ck = document.getElementById('ck' + i);
+      document.getElementById('sr'+i).classList.add('in');
+      const ck = document.getElementById('ck'+i);
+      const pass = (bd[k] ?? 0) >= 0.9;
       ck.textContent = pass ? '✓' : '✗';
       ck.className = 'ck ' + (pass ? 'y' : 'n');
     }, 750 + i * 210);
   });
-
-  const verd = document.getElementById('verd');
   setTimeout(() => {
-    verd.className = 'verdict in ' + cls;
-    verd.textContent = score < 0.5 ? 'This patient would not survive.'
-                     : score < 0.85 ? 'Suboptimal treatment.'
-                     : 'Correct prescription.';
+    const v = document.getElementById('verd');
+    v.className = 'verdict in ' + cls;
+    v.textContent = score < 0.5 ? 'This patient would not survive.'
+                  : score < 0.85 ? 'Suboptimal treatment.' : 'Correct prescription.';
   }, 1700);
-
   go(4);
 }
 
-// ── Act 5 reveal ──
+function animNum(el, from, to, dur) {
+  const t0 = Date.now();
+  const tick = () => {
+    const p = Math.min(1, (Date.now()-t0)/dur);
+    el.textContent = (to * (1-Math.pow(1-p,3))).toFixed(2);
+    if (p < 1) requestAnimationFrame(tick); else el.textContent = to.toFixed(2);
+  };
+  tick();
+}
+
+/* ── ACT 5 REVEAL ──────────────────────────────────────────── */
 function revealA5() {
-  const delays = [550, 1200, 1950];
-  const classes = ['bad','ok','ok'];
-  ['st0','st1','st2'].forEach((id, i) => {
+  // Populate bad column properly
+  document.getElementById('a5-bad-drug').innerHTML =
+    `${C.bad_drug}<br><span style="font-size:.65em;opacity:.5">${C.bad_dose}</span>`;
+
+  const delays = [500, 1200, 1950];
+  C.trained_steps.forEach((s, i) => {
     setTimeout(() => {
-      const el = document.getElementById(id);
-      el.classList.add('in', classes[i]);
+      const el = document.getElementById('st'+i);
+      if (el) el.classList.add('in', s.cls);
     }, delays[i]);
   });
-  setTimeout(() => document.getElementById('trained-rx').classList.add('in'), 2800);
+  setTimeout(() => document.getElementById('trx').classList.add('in'), 2800);
   setTimeout(() => {
-    const sc = document.getElementById('trained-sc');
-    sc.classList.add('in');
-    let cur = 0; const t0 = Date.now(); const dur = 900;
-    const tick = () => {
-      const p = Math.min(1,(Date.now()-t0)/dur);
-      const e = 1-Math.pow(1-p,3);
-      sc.textContent = (0.91 * e).toFixed(2);
-      if (p < 1) requestAnimationFrame(tick); else sc.textContent = '0.91';
-    };
-    tick();
+    const tsc = document.getElementById('tsc');
+    tsc.classList.add('in');
+    animNum(tsc, 0, C.trained_sc, 900);
   }, 3200);
 }
 
-// ── Reset ──
-function reset() {
-  budget = 0; invDone = [];
-  ['p1a','p1b','p1c','p2a','p2b','p2c'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('off');
-  });
-  ['ic1','ic2','ic3'].forEach(id => {
-    const c = document.getElementById(id);
-    c.classList.remove('done','busy');
-  });
-  ['r1','r2','r3'].forEach(id => {
-    const r = document.getElementById(id);
-    r.style.display = 'none'; r.textContent = '';
-  });
-  document.getElementById('dpills').style.display = 'none';
-  document.getElementById('rxbtn').disabled = true;
-  document.getElementById('inv-hint').textContent = 'Use all 3 investigations first';
-  ['sr0','sr1','sr2','sr3'].forEach(id => {
-    document.getElementById(id).classList.remove('in');
-    document.getElementById(id.replace('sr','ck')).textContent = '—';
-    document.getElementById(id.replace('sr','ck')).className = 'ck';
-  });
-  document.getElementById('scorebig').textContent = '0.00';
-  document.getElementById('scorebig').className = 'score-big';
-  const v = document.getElementById('verd');
-  v.className = 'verdict'; v.textContent = '';
-  ['st0','st1','st2'].forEach(id => {
-    document.getElementById(id).className = 'step';
-  });
-  document.getElementById('trained-rx').classList.remove('in');
-  document.getElementById('trained-sc').classList.remove('in');
-  document.getElementById('trained-sc').textContent = '0.91';
-  document.getElementById('drugsel').value = '';
-  document.getElementById('rxerr').style.display = 'none';
+/* ── NEW CASE ──────────────────────────────────────────────── */
+function newCase() {
+  // Pick a different case from current
+  const remaining = CASES.filter(c => c.id !== C.id);
+  const next = remaining[Math.floor(Math.random() * remaining.length)];
+  loadCase(next);
+  apiReset().catch(()=>{});
   go(1);
 }
 
-// Init
+/* ── INIT ──────────────────────────────────────────────────── */
+const startCase = CASES[Math.floor(Math.random() * CASES.length)];
+loadCase(startCase);
+apiReset().catch(()=>{});
 go(0);
 </script>
 </body>
