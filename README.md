@@ -27,9 +27,9 @@ pinned: false
 
 We trained Qwen3-4B + LoRA using GRPO across three curriculum stages. The broad-empiric baseline — prescribing the broadest available antibiotic regardless of resistance data — passes **0 of 10** adversarial cases. The trained model passes **10 of 10**. On the hardest Stage 3 cases (MDR + severe renal failure + allergy constraints), broad-empiric scores 0.21. **The trained model scores 0.71–0.88.**
 
-![Training summary — improvement over random baseline](training_summary.png)
+![Training summary — mean reward per stage vs random baseline](training_summary.png)
 
-![Reward curves across curriculum stages](reward_curves.png)
+![Reward curves across curriculum stages — Stage 1: peak 0.923, Stage 2: peak shown as multi-head reward sum (3 GRPO heads combined; quality_ratio terminal mean 0.79), Stage 3: peak 0.988](reward_curves.png)
 
 ---
 
