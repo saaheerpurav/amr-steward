@@ -45,7 +45,8 @@ Every item below is explicitly addressed and verifiable from this repo.
 | 6 | Runnable training script (Python or Colab notebook) | [`train.py`](train.py) (Python, ~600 lines) + [`AMR_Steward.ipynb`](AMR_Steward.ipynb) ([Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb)) — both end-to-end reproducible on A10G |
 | 7 | README links every deliverable, plots embedded inline | This Quick Links table + Results section embeds both PNGs via relative paths (works on GitHub *and* HF Space) |
 | 8 | Writeup linked from README | [`BLOG.md`](BLOG.md) — 10-section, ~2000 words |
-| 9 | Reproducible evaluation | `python eval.py` (baseline benchmarks) + `python eval_published_cases.py` (3 published cases) + `python eval_adversarial.py --seed 42` (10 adversarial cases) — all run on CPU in <60 seconds, no GPU required |
+| 9 | Unit + integration tests pass | `pytest test_env.py test_jepa_integration.py` — **21/21 tests pass** (8 env tests, 13 JEPA integration tests); covers reset/step/budget/reward, JEPA info-gain bounds, dense cap enforcement, EMA world model loading |
+| 10 | Reproducible evaluation | `python eval.py` (baseline benchmarks) + `python eval_published_cases.py` (3 published cases) + `python eval_adversarial.py --seed 42` (10 adversarial cases) — all run on CPU in <60 seconds, no GPU required |
 
 ---
 
@@ -255,6 +256,20 @@ Reward holds consistently above 0.70 even as case complexity scales from suscept
 A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Defaulting to the broadest available agent (e.g. meropenem) scores 0.21–0.47 across levels. The trained model consistently scores **0.71–0.84** across all stages.
 
 **3× better than the broad-empiric baseline on the hardest drug-resistant cases** (Level 3: 0.71 vs 0.21).
+
+---
+
+## Tests
+
+```bash
+pytest test_env.py test_jepa_integration.py -v
+# 21 passed in ~5s (CPU, no GPU required)
+```
+
+| File | Tests | What's covered |
+|------|-------|---------------|
+| [`test_env.py`](test_env.py) | 8 | Reset, tool calls, correct/wrong prescription rewards, budget exhaustion, invalid action handling, state property, app import |
+| [`test_jepa_integration.py`](test_jepa_integration.py) | 13 | JEPA info-gain bounds, dense reward cap, EMA world model loading, repeated-tool no-bonus rule, latent consistency bonus bounds, full episode accumulation, correct prescription reward with JEPA active |
 
 ---
 
