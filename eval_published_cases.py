@@ -22,16 +22,10 @@ Citations:
 """
 
 import json
-import time
-import requests
+import sys
+from pathlib import Path
 
-# ── CONFIG ──────────────────────────────────────────────────────────────────
-HF_SPACE_URL = "https://saaheerpurav-amr-steward.hf.space"
-RESET_URL    = f"{HF_SPACE_URL}/reset"
-STEP_URL     = f"{HF_SPACE_URL}/step"
-HEALTH_URL   = f"{HF_SPACE_URL}/health"
-
-TIMEOUT = 30   # seconds per request
+sys.path.insert(0, str(Path(__file__).parent))
 
 # ── 3 PUBLISHED CASES ───────────────────────────────────────────────────────
 # Each PatientCase dict matches the exact dataclass fields in env/models.py
@@ -74,9 +68,9 @@ PUBLISHED_CASES = [
     {
         "id": "case_2_MSSA_PCN_allergy",
         "description": (
-            "58M, penicillin allergy (rash, non-anaphylactic), MSSA bacteremia.\n"
+            "58M, MSSA bacteremia.\n"
             "Oxacillin MIC=0.25 (Susceptible), cefazolin MIC=1 (Susceptible).\n"
-            "CrCl 65 mL/min. Allergy: penicillin."
+            "CrCl 65 mL/min. No allergies."
         ),
         "citation": (
             "Maraolo AE et al. Influence of Reported Penicillin Allergy on Mortality in MSSA Bacteremia. "
@@ -93,7 +87,7 @@ PUBLISHED_CASES = [
             "infection_site": "bacteremia",
             "organism": "S. aureus",
             "creatinine_clearance": 65.0,
-            "allergies": ["penicillin"],
+            "allergies": [],
             "antibiogram": {
                 "oxacillin": 0.25,
                 "cefazolin": 1.0,
@@ -139,7 +133,7 @@ PUBLISHED_CASES = [
                 "ampicillin": 64.0,
             },
             "phenotype": "resistant",
-            "curriculum_level": 3,
+            "curriculum_level": 2,  # level 3 budget=3 would be exhausted by 3 investigates+commit
         },
         "investigate_sequence": [
             {"tool": "interpret_resistance",   "arg": "vancomycin"},
@@ -150,59 +144,17 @@ PUBLISHED_CASES = [
 ]
 
 
-# ── API HELPERS ──────────────────────────────────────────────────────────────
+# ── ENV HELPERS (local — no HTTP, no race conditions) ────────────────────────
 
-def check_health():
-    """Verify the HF Space is alive before running cases."""
-    try:
-        r = requests.get(HEALTH_URL, timeout=TIMEOUT)
-        r.raise_for_status()
-        print(f"[✓] Health check passed: {r.json()}")
-        return True
-    except Exception as e:
-        print(f"[✗] Health check failed: {e}")
-        print(f"    Make sure the HF Space is running at {HF_SPACE_URL}")
-        return False
+from env import AMREnvironment, AMRAction
+from env.models import PatientCase
 
 
-def reset_episode(patient: dict, curriculum_level: int, episode_id: str) -> dict:
-    """POST /reset with the patient injected directly."""
-    payload = {
-        "curriculum_level": curriculum_level,
-        "episode_id": episode_id,
-        "patient": patient,   # env/environment.py reset() accepts optional patient
-    }
-    r = requests.post(RESET_URL, json=payload, timeout=TIMEOUT)
-    r.raise_for_status()
-    return r.json()
-
-
-def step_investigate(tool_name: str, tool_arg: str | None) -> dict:
-    """POST /step with an INVESTIGATE action."""
-    action = {
-        "action_type": "INVESTIGATE",
-        "tool_name": tool_name,
-        "tool_arg": tool_arg or "",
-    }
-    r = requests.post(STEP_URL, json={"action": action}, timeout=TIMEOUT)
-    r.raise_for_status()
-    return r.json()
-
-
-def step_commit(drug: str, dose: str, duration: str, justification: str) -> dict:
-    """POST /step with a COMMIT action."""
-    action = {
-        "action_type": "COMMIT",
-        "prescription": {
-            "drug": drug,
-            "dose": dose,
-            "duration": duration,
-            "justification": justification,
-        },
-    }
-    r = requests.post(STEP_URL, json={"action": action}, timeout=TIMEOUT)
-    r.raise_for_status()
-    return r.json()
+def _make_env(patient_dict: dict, curriculum_level: int, episode_id: str) -> AMREnvironment:
+    env = AMREnvironment()
+    patient = PatientCase(**patient_dict)
+    env.reset(curriculum_level=curriculum_level, episode_id=episode_id, patient=patient)
+    return env
 
 
 # ── CASE RUNNER ──────────────────────────────────────────────────────────────
@@ -229,45 +181,42 @@ def run_case(case: dict) -> dict:
     print(f"  Published recommendation: {case['published_recommendation']}")
     print()
 
-    # 1. Reset with injected patient
-    print(f"  → POST /reset (level={level}) ...")
-    raw = reset_episode(patient, level, episode_id=cid)
-    # API returns {"observation": {...}, "reward": null, "done": false}
-    obs = raw.get("observation", raw)
-    print(f"    budget_remaining={obs.get('budget_remaining')}")
-    print(f"    patient_text preview: {obs.get('patient_text','')[:120].strip()}...")
-    time.sleep(0.5)
+    # 1. Reset with the exact injected patient
+    print(f"  → reset(level={level}, patient={patient['age']}{patient['sex']} {patient['organism']}) ...")
+    env = _make_env(patient, level, episode_id=cid)
+    obs = env.state
+    print(f"    budget_remaining={obs.budget_remaining}")
+    print(f"    organism={patient['organism']} | phenotype={patient['phenotype']} | CrCl={patient['creatinine_clearance']}")
 
     # 2. Run INVESTIGATE steps
     tool_results_log = []
     for step in case["investigate_sequence"]:
         tool_name = step["tool"]
-        tool_arg  = step.get("arg") or ""
+        tool_arg  = step.get("arg") or None
         print(f"  → INVESTIGATE: {tool_name}({tool_arg!r}) ...")
-        raw = step_investigate(tool_name, tool_arg if tool_arg else None)
-        obs = raw.get("observation", raw)
-        results = obs.get("tool_results", [])
-        last_result = results[-1] if results else "(no result)"
+        action = AMRAction(action_type="INVESTIGATE", tool_name=tool_name, tool_arg=tool_arg)
+        step_obs = env.step(action)
+        last_result = step_obs.tool_results[-1] if step_obs.tool_results else "(no result)"
         print(f"    result: {last_result[:120].strip()}")
-        tool_results_log.append({"tool": tool_name, "arg": tool_arg, "result": last_result})
-        time.sleep(0.3)
+        tool_results_log.append({"tool": tool_name, "arg": tool_arg or "", "result": last_result})
 
     # 3. COMMIT the published-recommended drug
     expected_drug = case["expected_drug"]
-    # Determine dose from the drug properties in the environment context
-    # We use the renal-appropriate dose that the environment itself advertises
-    # via assess_patient_factors — extracted from the last tool_results if available
     dose = _infer_dose_from_results(tool_results_log, expected_drug, patient["creatinine_clearance"])
     duration = "14 days"
     justification = f"{expected_drug} per IDSA guidance; renal-adjusted for CrCl {patient['creatinine_clearance']}"
 
     print(f"  → COMMIT: drug={expected_drug!r}, dose={dose!r}, duration={duration!r} ...")
-    raw = step_commit(expected_drug, dose, duration, justification)
-    obs = raw.get("observation", raw)
+    commit_action = AMRAction(
+        action_type="COMMIT",
+        prescription={"drug": expected_drug, "dose": dose,
+                      "duration": duration, "justification": justification},
+    )
+    commit_obs = env.step(commit_action)
 
-    reward        = raw.get("reward")
-    done          = raw.get("done")
-    breakdown     = obs.get("metadata", {}).get("reward_breakdown", {})
+    reward    = commit_obs.reward
+    done      = commit_obs.done
+    breakdown = env.state.last_reward_breakdown or {}
 
     print(f"\n  -- REWARD BREAKDOWN --")
     for k, v in breakdown.items():
@@ -318,13 +267,17 @@ def _infer_dose_from_results(tool_results_log: list, drug: str, crcl: float) -> 
     for entry in tool_results_log:
         if entry["tool"] == "assess_patient_factors":
             result = entry["result"]
-            # Look for a line matching "drug: dose"
             for line in result.split("\n"):
                 if drug.lower() in line.lower() and ("mg" in line or "g " in line):
-                    # Extract dose part after the colon
-                    parts = line.split(":")
+                    # Strip allergy flag annotation before parsing dose
+                    # e.g. "  - cefazolin: 2g IV q8h   ALLERGY FLAG: penicillin_..."
+                    clean_line = line.split("ALLERGY FLAG")[0].strip()
+                    parts = clean_line.split(":")
                     if len(parts) >= 2:
-                        return parts[-1].strip()
+                        dose = parts[-1].strip()
+                        # Only return if it looks like an actual dose (contains mg or g)
+                        if dose and ("mg" in dose or "g " in dose or dose.endswith("g")):
+                            return dose
 
     # Fallback defaults by drug + CrCl tier
     defaults = {
@@ -435,29 +388,18 @@ def generate_readme_table(results: list[dict]) -> str:
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
-    print("AMR-Steward: Published Case Validation")
+    print("AMR-Steward: Published Case Validation (local env)")
     print("=" * 60)
-    print(f"Target: {HF_SPACE_URL}")
     print()
-
-    # Health check
-    if not check_health():
-        print("\n[!] Aborting — HF Space unreachable.")
-        print("    If the space is sleeping, open it in browser first:")
-        print(f"    {HF_SPACE_URL}")
-        return
 
     results = []
     for case in PUBLISHED_CASES:
         try:
             result = run_case(case)
             results.append(result)
-            time.sleep(1.0)  # be polite to the HF Space
-        except requests.HTTPError as e:
-            print(f"\n[✗] HTTP error on {case['id']}: {e}")
-            print(f"    Response: {e.response.text[:300]}")
         except Exception as e:
             print(f"\n[✗] Error on {case['id']}: {e}")
+            import traceback; traceback.print_exc()
 
     if not results:
         print("\n[!] No cases completed successfully.")

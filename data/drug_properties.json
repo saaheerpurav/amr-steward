@@ -70,14 +70,16 @@
 
   "daptomycin": {
     "class": "lipopeptide",
-    "standard_dose": "6mg/kg IV q24h (bacteremia), 8-10mg/kg for endocarditis",
+    "standard_dose": "6mg/kg IV q24h (bacteremia); 8-10mg/kg for VRE or endocarditis",
     "renal_adjustments": {
-      "CrCl_above_30": "6mg/kg IV q24h",
-      "CrCl_under_30": "6mg/kg IV q48h"
+      "CrCl_above_50": "6mg/kg IV q24h",
+      "CrCl_30_50": "6mg/kg IV q24h",
+      "CrCl_10_30": "6mg/kg IV q48h",
+      "CrCl_under_10": "8mg/kg IV post-HD"
     },
     "allergy_flags": [],
     "spectrum": ["gram_positive", "MRSA", "VRE"],
-    "notes": "Do NOT use for pneumonia — inactivated by surfactant. Monitor CPK weekly."
+    "notes": "Do NOT use for pneumonia — inactivated by surfactant. Monitor CPK weekly. For VRE bacteremia, dose at 8-10 mg/kg. In ESRD/HD patients, administer post-hemodialysis session."
   },
 
   "ertapenem": {
