@@ -317,13 +317,24 @@ def count_unique_tool_types(tool_history: list[dict]) -> int:
 
 
 def R5_tool_efficiency(unique_tool_types: int, budget_spent: int, budget_remaining: int, budget_total: int) -> float:
-    """R5 (structured): tool diversity × budget economy.
-    0.0 if no investigation; higher when diverse tools were used with budget to spare."""
+    """R5 (structured): Thoroughness of investigation.
+    Rewards calling multiple distinct tool types (up to 3) without penalizing 
+    the agent for spending its budget. 0.0 if no investigation."""
     if budget_spent == 0:
         return 0.0
-    diversity = unique_tool_types / max(1, budget_spent)
-    economy = budget_remaining / max(1, budget_total)
-    return round(diversity * economy, 4)
+    
+    # We consider 3 distinct tools to be a "complete" investigation 
+    # (e.g. resistance, guidelines, patient factors)
+    expected_tools = min(3, budget_total) 
+    
+    # Redundant tool calls (spent > unique_types) slightly dilute the score
+    # to penalize blindly spamming the same tool, but we no longer penalize 
+    # spending the budget on useful tools.
+    efficiency_ratio = unique_tool_types / max(1, budget_spent)
+    completeness = min(1.0, unique_tool_types / expected_tools)
+    
+    # 80% weight on completeness, 20% on not spamming redundant calls
+    return round((0.8 * completeness) + (0.2 * efficiency_ratio), 4)
 
 
 def R0_allergy_safety(prescription: dict, patient: PatientCase, drug_properties: dict | None = None) -> float:
