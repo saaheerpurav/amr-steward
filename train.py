@@ -52,7 +52,7 @@ SYSTEM_PROMPT = """You are an antimicrobial stewardship AI. Prescribe the narrow
 INVESTIGATE tools (optional, costs 1 budget each):
   INVESTIGATE: {"tool": "interpret_resistance", "arg": "<drug>"}
   INVESTIGATE: {"tool": "check_guideline", "arg": "<syndrome>"}
-  INVESTIGATE: {"tool": "assess_patient_factors"}
+  INVESTIGATE: {"tool": "assess_patient_factors", "arg": ""}
 
 When ready, output EXACTLY this one line and stop:
   COMMIT: {"drug": "<name>", "dose": "<dose>", "duration": "<days>", "justification": "<one sentence>"}
@@ -251,22 +251,42 @@ def _score_completion_with_env(
     return cumulative
 
 
+# Canonical tool names — used by the plain-text fallback parser below
+_KNOWN_TOOLS = ("interpret_resistance", "check_guideline", "assess_patient_factors")
+
+
 def _parse_tool_calls_to_history(text: str) -> list[dict]:
     """Parse INVESTIGATE lines into structured [{tool, arg}, ...] entries.
 
-    Uses the same structured format as AMRState.tool_history, so training Head 2
-    and the env terminal both call count_unique_tool_types on identically-shaped data.
-    Malformed / non-JSON INVESTIGATE lines are silently skipped.
+    Primary path: strict JSON with "tool" and "arg" keys (matches system prompt).
+    Fallback path: plain-text detection of known tool names — keeps Head 2 alive
+    during early training when the model hasn't learned JSON format yet.
+    Head 3 (env replay) stays strict-JSON-only; wrong format there correctly gives 0 reward.
     """
     history: list[dict] = []
     for raw in parse_tool_calls_from_text(text):
+        raw_s = raw.strip()
+
+        # Primary: strict JSON parse (system prompt teaches this exact format)
         try:
-            payload = json.loads(raw.strip())
+            payload = json.loads(raw_s)
             tool = payload.get("tool", "")
             if tool:
                 history.append({"tool": tool, "arg": payload.get("arg", "")})
+                continue
         except (json.JSONDecodeError, AttributeError, ValueError):
-            continue
+            pass
+
+        # Fallback: plain-text — detect known tool names even without JSON.
+        # Prevents Head 2 from returning 0 for every early-training completion.
+        raw_lower = raw_s.lower()
+        for tname in _KNOWN_TOOLS:
+            if raw_lower.startswith(tname):
+                # Remainder is the arg (strip leading punctuation/whitespace)
+                remainder = raw_s[len(tname):].strip().lstrip(",:\"'").strip().strip("\"'")
+                history.append({"tool": tname, "arg": remainder})
+                break
+
     return history
 
 
