@@ -236,4 +236,4 @@ curl -X POST http://localhost:7860/reset -H "Content-Type: application/json" -d 
 
 ---
 
-*No real patient data was used. All `PatientCase` objects are synthetically generated from realistic clinical distributions. AMR-Steward is a research artefact and is not approved for clinical use.*
+*AMR-Steward is a research artefact and is not approved for clinical use.*
