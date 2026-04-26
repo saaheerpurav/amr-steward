@@ -323,13 +323,10 @@ def R5_tool_efficiency(unique_tool_types: int, budget_spent: int, budget_remaini
     if budget_spent == 0:
         return 0.0
     
-    # We consider 3 distinct tools to be a "complete" investigation 
-    # (e.g. resistance, guidelines, patient factors)
+
     expected_tools = min(3, budget_total) 
     
-    # Redundant tool calls (spent > unique_types) slightly dilute the score
-    # to penalize blindly spamming the same tool, but we no longer penalize 
-    # spending the budget on useful tools.
+
     efficiency_ratio = unique_tool_types / max(1, budget_spent)
     completeness = min(1.0, unique_tool_types / expected_tools)
     
@@ -367,10 +364,10 @@ def compute_optimal_prescription(
     if drug_properties is None:
         drug_properties = _get_drug_props()
 
-    best = 0.01  # never zero — avoids division by zero
+    best = 0.01  # never zero
     for drug in patient.antibiogram:
         drug_norm = _normalize_drug(drug)
-        # Use best renal-tier dose for this drug
+
         props = drug_properties.get(drug_norm, {})
         crcl = patient.creatinine_clearance
         dose = ""
@@ -441,11 +438,11 @@ def compute_total_reward(
     r3 = R3_stewardship(prescription, patient, eucast, r1)
     r4 = R4_dose_correctness(prescription, patient, drug_properties)
 
-    # R5: unique tool types from structured history (preferred) or text fallback
+
     if tool_history is not None:
         unique_types = count_unique_tool_types(tool_history)
     else:
-        # Legacy fallback: infer tool type from free-text result strings
+        # Legacy fallback
         unique_types = (
             len({_infer_tool_type(r) for r in tool_call_history} - {"unknown"})
             if tool_call_history else 0
@@ -454,7 +451,7 @@ def compute_total_reward(
         budget_spent = max(0, budget_total - budget_remaining)
         effective_remaining = budget_remaining
     else:
-        # Fallback when called without env context (e.g. legacy callers)
+
         budget_spent = len(tool_call_history)
         effective_remaining = 0
     r5 = R5_tool_efficiency(unique_types, budget_spent, effective_remaining, budget_total)
@@ -486,7 +483,7 @@ def parse_prescription_from_text(model_output: str) -> dict | None:
     try:
         return json.loads(match.group(1))
     except json.JSONDecodeError:
-        # Try to extract drug name at minimum
+
         drug_match = re.search(r'"drug"\s*:\s*"([^"]+)"', model_output, re.IGNORECASE)
         dose_match = re.search(r'"dose"\s*:\s*"([^"]+)"', model_output, re.IGNORECASE)
         if drug_match:

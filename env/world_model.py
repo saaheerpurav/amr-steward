@@ -1,6 +1,3 @@
-# SAAHEER OWNS THIS FILE
-# JEPA-inspired world model for diagnostic information gain prediction.
-# Pre-trained separately, frozen during GRPO training.
 
 import re
 import torch
@@ -11,8 +8,6 @@ from pathlib import Path
 
 WEIGHTS_PATH = Path(__file__).parent.parent / "jepa_weights.pt"
 
-# Compound tool+arg keys the world model reasons over.
-# Format: <tool_name>_<arg> for resistance tools, bare name for others.
 AVAILABLE_TOOLS = [
     "interpret_resistance_meropenem",
     "interpret_resistance_ceftazidime-avibactam",
@@ -37,7 +32,7 @@ TOOL_TO_IDX = {t: i for i, t in enumerate(AVAILABLE_TOOLS)}
 STATE_DIM = 64
 REPR_DIM = 128
 
-# Fixed list of drugs for the antibiogram presence sub-vector (dims 39-63)
+
 _ANTIBIOGRAM_DRUGS = [
     "meropenem", "ceftriaxone", "piperacillin-tazobactam", "ertapenem",
     "ceftazidime-avibactam", "colistin", "cefepime", "vancomycin",
@@ -100,7 +95,7 @@ class AMRWorldModel(nn.Module):
         Returns 0.0 for unknown tool names rather than silently mapping to index 0.
         """
         if tool_name not in TOOL_TO_IDX:
-            return 0.0  # fail closed — do not silently alias to index 0
+            return 0.0  
         tool_idx = torch.tensor(TOOL_TO_IDX[tool_name])
         with torch.no_grad():
             ctx_repr = self.context_encoder(known_state.unsqueeze(0))
@@ -142,7 +137,7 @@ class AMRWorldModel(nn.Module):
         """
         vec = torch.zeros(STATE_DIM)
 
-        # ── Organism one-hot [0:5] ──────────────────────────────────────────
+      
         organisms = ["K. pneumoniae", "E. coli", "P. aeruginosa", "S. aureus", "Enterococcus"]
         org = patient_features.get("organism", "")
         for i, o in enumerate(organisms):
@@ -150,7 +145,7 @@ class AMRWorldModel(nn.Module):
                 vec[i] = 1.0
                 break
 
-        # ── Phenotype one-hot [5:8] ─────────────────────────────────────────
+        
         phenotypes = ["susceptible", "resistant", "MDR"]
         pheno = patient_features.get("phenotype", "").lower()
         for i, p in enumerate(phenotypes):
@@ -158,7 +153,7 @@ class AMRWorldModel(nn.Module):
                 vec[5 + i] = 1.0
                 break
 
-        # ── Infection site one-hot [8:12] ───────────────────────────────────
+
         sites = ["bacteremia", "UTI", "pneumonia", "intra-abdominal"]
         site = patient_features.get("infection_site", "")
         for i, s in enumerate(sites):
@@ -166,21 +161,20 @@ class AMRWorldModel(nn.Module):
                 vec[8 + i] = 1.0
                 break
 
-        # ── CrCl normalized [12] ────────────────────────────────────────────
+      
         crcl = float(patient_features.get("creatinine_clearance", 60.0))
         vec[12] = min(crcl / 120.0, 1.0)
 
-        # ── Allergy flags [13:15] ───────────────────────────────────────────
+
         allergies = [a.lower() for a in patient_features.get("allergies", [])]
         vec[13] = 1.0 if any("penicillin" in a for a in allergies) else 0.0
         vec[14] = 1.0 if any(a in ("cephalosporin", "sulfonamide", "sulfa") for a in allergies) else 0.0
 
-        # ── Parse drug classifications out of free-text tool results ────────
+     
         drug_class: dict[str, float] = {}  # drug_name -> 1.0/0.5/0.0
         for result in tool_results:
             rl = result.lower()
-            # Match pattern: "<drug> mic = <val> mg/l -> <label>"
-            # or "resistance interpretation for <drug> against..."
+            
             drug_hit = None
             for drug in _ANTIBIOGRAM_DRUGS:
                 if drug in rl and ("mic" in rl or "susceptib" in rl or "resistant" in rl):
@@ -196,8 +190,6 @@ class AMRWorldModel(nn.Module):
 
         results_joined = " ".join(tool_results).lower()
 
-        # ── Tool-called flags [15:31] and classification slots [31:47] ──────
-        # Tools are in AVAILABLE_TOOLS order (up to 16 slots).
         antibiogram = {k.lower(): v for k, v in patient_features.get("antibiogram", {}).items()}
 
         for i, tool_key in enumerate(AVAILABLE_TOOLS[:16]):
@@ -222,7 +214,7 @@ class AMRWorldModel(nn.Module):
                 if "renal function" in results_joined or "crcl" in results_joined:
                     vec[slot_called] = 1.0
 
-        # ── Antibiogram presence flags [47:64] (17 drugs) ───────────────────
+        
         for j, drug in enumerate(_ANTIBIOGRAM_DRUGS[:17]):
             if drug in antibiogram:
                 vec[47 + j] = 1.0
