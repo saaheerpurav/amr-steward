@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from env import AMRAction, AMREnvironment
+from env.models import PatientCase
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -66,6 +67,7 @@ class ResetRequest(BaseModel):
     curriculum_level: int = 1
     seed: Optional[int] = None
     episode_id: Optional[str] = None
+    patient: Optional[Dict[str, Any]] = None  # inject a specific PatientCase for reproducible eval
 
 
 class StepRequest(BaseModel):
@@ -81,10 +83,18 @@ class StepRequest(BaseModel):
 def reset(body: ResetRequest = ResetRequest()) -> JSONResponse:
     """Start a new episode. Returns the initial observation."""
     try:
+        injected_patient: PatientCase | None = None
+        if body.patient is not None:
+            try:
+                injected_patient = PatientCase(**body.patient)
+            except Exception as exc:
+                logger.warning("Invalid patient payload in /reset — using random patient: %s", exc)
+
         obs = _ENV.reset(
             seed=body.seed,
             episode_id=body.episode_id,
             curriculum_level=body.curriculum_level,
+            patient=injected_patient,
         )
         return JSONResponse({
             "observation": obs.model_dump(),
