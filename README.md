@@ -166,6 +166,21 @@ total         = 0.90·quality_ratio + 0.10·R5
 
 ---
 
+## Reward Hacking Defenses
+
+Four independent mechanisms prevent agents from gaming the reward signal:
+
+| Vector | Defense | How it works |
+|--------|---------|-------------|
+| **Allergy bypass** | R0 hard gate | Any prescription the patient is allergic to → `total = 0.0, done = True` immediately. No partial credit. Checked before any other component. |
+| **Dense reward farming** | Investigation cap | INVESTIGATE steps earn `+0.04` per novel `(tool, argument)` pair, **hard-capped at `+0.20` total per episode** (`DENSE_CAP`). An agent that only calls tools and never commits cannot exceed 0.20 — well below any meaningful terminal reward. |
+| **Repeated tool calls** | `_called_tools` deduplication | `AMREnvironment._called_tools` tracks every `(tool_name, tool_arg)` pair seen. Calling the same tool with the same argument a second time earns **zero** dense bonus. Prevents reward farming via repetition. |
+| **Stewardship gaming** | R3 gated on R1 | R3 (narrowest effective drug) only fires if R1 ≥ threshold — the drug must actually cover the organism. Prescribing a useless narrow-spectrum drug to game the stewardship score returns R3 = 0. |
+
+The patient-specific `quality_ratio` oracle (`compute_optimal_prescription()`) brute-forces the ceiling at reset time — so the terminal signal is relative to what is *actually achievable* for this patient, not a fixed threshold that could be gamed with an easy case.
+
+---
+
 ## JEPA World Model — Latent-Space Guidance System
 
 AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model for clinical state prediction. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment**: the same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
