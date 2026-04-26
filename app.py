@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import logging
 import textwrap
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from env import AMRAction, AMREnvironment
@@ -65,6 +67,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_BASE = Path(__file__).resolve().parent
+
+# Serve demo_web/ assets (JS, CSS, images if any) under /demo-static/
+_DEMO_DIR = _BASE / "demo_web"
+if _DEMO_DIR.exists():
+    app.mount("/demo-static", StaticFiles(directory=str(_DEMO_DIR)), name="demo_static")
+
+# Serve landing page assets under /static/ (Palak's build output)
+_STATIC_DIR = _BASE / "static"
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 # ---------------------------------------------------------------------------
 # Request / response models
@@ -142,8 +156,17 @@ def health() -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
-# Landing page
+# Demo + Landing page
 # ---------------------------------------------------------------------------
+
+@app.get("/demo", response_class=HTMLResponse, include_in_schema=False)
+def demo() -> HTMLResponse:
+    """Interactive browser demo — cinematic act-by-act experience."""
+    demo_file = _DEMO_DIR / "index.html"
+    if demo_file.exists():
+        return HTMLResponse(content=demo_file.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<p>Demo not found.</p>", status_code=404)
+
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root() -> HTMLResponse:

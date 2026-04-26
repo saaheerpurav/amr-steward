@@ -24,9 +24,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
 /* ── ACTS ── */
 .act{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:clamp(1.5rem,4vw,3rem);
-  opacity:0;pointer-events:none;transition:opacity .32s ease,transform .32s ease;transform:translateY(12px)}
+  opacity:0;pointer-events:none;transition:opacity .38s ease,transform .38s ease;transform:translateY(12px)}
 .act.active{opacity:1;pointer-events:all;transform:translateY(0)}
 .act.out{opacity:0;transform:translateY(-12px);pointer-events:none}
+/* horizontal slide for score→comparison transition */
+.act.slide-left{transform:translateX(-60px)}
+.act.slide-from-right{transform:translateX(60px)}
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.8rem 1.8rem;
@@ -119,6 +122,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
 
 /* ═══ ACT 4 ═══ */
 #a4{gap:1.4rem;text-align:center}
+.score-ctx{font-family:var(--mono);font-size:.62rem;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+.score-wrap{display:flex;align-items:baseline;justify-content:center;gap:.6rem}
+.score-denom{font-family:var(--mono);font-size:clamp(1.8rem,5vw,3.5rem);font-weight:700;color:var(--dim);opacity:.35;letter-spacing:-.03em}
 .scorebig{font-family:var(--mono);font-size:clamp(6rem,17vw,13rem);font-weight:700;
   line-height:1;letter-spacing:-.04em;transition:color .6s,text-shadow .6s}
 .scorebig.red{color:var(--red);text-shadow:0 0 100px rgba(255,68,85,.35)}
@@ -136,32 +142,49 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
 .verdict.red{color:var(--red)}.verdict.amber{color:var(--amber)}.verdict.green{color:var(--teal)}
 
 /* ═══ ACT 5 ═══ */
-#a5{justify-content:space-between;padding-top:3rem;padding-bottom:2rem;gap:0}
-.a5-eye{font-family:var(--mono);font-size:.6rem;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-bottom:1rem}
-.a5-split{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);width:100%;max-width:880px;flex:1}
-.col-l,.col-r{padding:clamp(1.4rem,2.5vw,2.2rem) clamp(1rem,2vw,1.8rem);display:flex;flex-direction:column;gap:.9rem}
-.col-l{background:rgba(255,68,85,.04);border-right:1px solid var(--border)}
-.col-r{background:rgba(0,212,170,.04)}
-.col-tag{font-family:var(--mono);font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;opacity:.5;margin-bottom:.2rem}
+#a5{justify-content:flex-start;overflow-y:auto;padding-top:1.8rem;padding-bottom:2rem;gap:1rem}
+.a5-eye{font-family:var(--mono);font-size:.65rem;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;flex-shrink:0}
+.a5-split{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);width:100%;max-width:920px;flex-shrink:0}
+.col-l,.col-r{padding:clamp(1.1rem,2vw,1.8rem) clamp(1rem,1.8vw,1.6rem);display:flex;flex-direction:column;gap:.7rem}
+.col-l{background:rgba(255,68,85,.05);border-right:1px solid var(--border)}
+.col-r{background:rgba(0,212,170,.05)}
+.col-tag{font-family:var(--mono);font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;opacity:.55;margin-bottom:.3rem}
 .col-l .col-tag{color:var(--red)}.col-r .col-tag{color:var(--teal)}
-.col-drug{font-family:var(--mono);font-size:clamp(.95rem,2.3vw,1.4rem);font-weight:700;line-height:1.3}
-.col-l .col-drug{color:rgba(255,68,85,.5)}.col-r .col-drug{color:var(--teal)}
-.col-sc{font-family:var(--mono);font-size:clamp(2.5rem,6.5vw,4.2rem);font-weight:700;line-height:1;letter-spacing:-.02em}
-.col-l .col-sc{color:var(--red);opacity:.75}.col-r .col-sc{color:var(--teal)}
-.col-note{font-size:.8rem;line-height:1.55;color:rgba(255,68,85,.6)}
-.steps{display:flex;flex-direction:column;gap:.45rem;margin-top:.3rem}
-.step{font-family:var(--mono);font-size:.7rem;line-height:1.4;opacity:0;transform:translateX(8px);
+.col-drug{font-family:var(--mono);font-size:clamp(1.1rem,2.8vw,1.7rem);font-weight:700;line-height:1.25}
+.col-l .col-drug{color:rgba(255,68,85,.6)}.col-r .col-drug{color:var(--teal)}
+.col-sc{font-family:var(--mono);font-size:clamp(2.6rem,6vw,4.2rem);font-weight:700;line-height:1;letter-spacing:-.03em}
+.col-l .col-sc{color:var(--red);opacity:.8}.col-r .col-sc{color:var(--teal)}
+.col-verdict{font-size:.88rem;font-weight:600;line-height:1.5}
+.col-l .col-verdict{color:rgba(255,68,85,.7)}.col-r .col-verdict{color:rgba(0,212,170,.8)}
+.col-note{font-size:.82rem;line-height:1.55;color:rgba(255,68,85,.6)}
+.steps{display:flex;flex-direction:column;gap:.5rem;margin-top:.3rem}
+.step{font-family:var(--mono);font-size:.75rem;line-height:1.4;opacity:0;transform:translateX(8px);
   transition:all .38s ease;display:flex;align-items:flex-start;gap:.5rem}
 .step::before{content:'›';opacity:.4;flex-shrink:0;margin-top:.05em}
 .step.in{opacity:1;transform:translateX(0)}
 .step.in.bad{color:var(--red)}.step.in.ok{color:var(--teal)}.step.in.info{color:var(--amber)}
+.step-pend{color:var(--dim);font-size:.7rem;letter-spacing:.04em;animation:pendingblink .85s ease infinite}
+@keyframes pendingblink{0%,100%{opacity:.18}50%{opacity:.62}}
+.ai-header{margin-bottom:.5rem}
+.ai-name{font-family:var(--mono);font-size:clamp(1.2rem,2.8vw,1.8rem);font-weight:700;color:var(--teal);
+  text-shadow:0 0 28px rgba(0,212,170,.4);letter-spacing:.01em;line-height:1.1}
+.ai-sub{font-family:var(--mono);font-size:.58rem;color:rgba(0,212,170,.5);letter-spacing:.13em;text-transform:uppercase;margin-top:.35rem}
+.user-name{font-family:var(--mono);font-size:clamp(1.2rem,2.8vw,1.8rem);font-weight:700;color:rgba(220,232,245,.65);
+  letter-spacing:.01em;line-height:1.1}
+.user-sub{font-family:var(--mono);font-size:.58rem;color:var(--dim);letter-spacing:.13em;text-transform:uppercase;margin-top:.35rem}
 #trx{opacity:0;transition:opacity .5s}#trx.in{opacity:1}
 #tsc{opacity:0;transition:opacity .5s;font-family:var(--mono);font-weight:700;
-  font-size:clamp(2.5rem,6.5vw,4.2rem);line-height:1;color:var(--teal)}
+  font-size:clamp(2.6rem,6vw,4.2rem);line-height:1;color:var(--teal);letter-spacing:-.03em}
 #tsc.in{opacity:1}
-.a5-foot{text-align:center;max-width:700px;margin-top:1.4rem}
-.finalline{font-size:clamp(.9rem,2.3vw,1.35rem);font-weight:700;color:var(--text);line-height:1.6;margin-bottom:1.4rem}
+.a5-foot{text-align:center;width:100%;max-width:920px;margin-top:.6rem;flex-shrink:0}
+.finalline{font-size:clamp(.85rem,2vw,1.15rem);font-weight:600;color:var(--dim);line-height:1.5;margin-bottom:.7rem}
 .finalline em{color:var(--teal);font-style:normal}
+.col-sc-wrap{display:flex;align-items:baseline;gap:.4rem}
+.col-denom{font-family:var(--mono);font-size:.9em;font-weight:400;opacity:.35}
+.survivor-line{font-family:var(--mono);font-size:clamp(1.1rem,2.6vw,1.7rem);font-weight:700;
+  color:var(--teal);text-shadow:0 0 60px rgba(0,212,170,.35);margin-bottom:1rem;line-height:1.5;
+  opacity:0;transition:opacity .8s ease}
+.survivor-line.in{opacity:1}
 .a5-btns{display:flex;gap:.9rem;justify-content:center;flex-wrap:wrap}
 
 @media(max-width:660px){
@@ -237,7 +260,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
 
 <!-- ═══ ACT 4 — SCORE ═══ -->
 <div class="act" id="a4">
-  <div class="scorebig" id="scorebig">0.00</div>
+  <div class="score-ctx">Prescription quality score — 0.0 = wrong drug kills patient · 1.0 = perfect treatment</div>
+  <div class="score-wrap">
+    <div class="scorebig" id="scorebig">0.00</div>
+    <div class="score-denom">/ 1.0</div>
+  </div>
   <div class="srows">
     <div class="srow" id="sr0"><span>Drug works on this bacteria</span><span class="ck" id="ck0">—</span></div>
     <div class="srow" id="sr1"><span>Expert recommended</span><span class="ck" id="ck1">—</span></div>
@@ -245,28 +272,34 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
     <div class="srow" id="sr3"><span>Right dose for this patient</span><span class="ck" id="ck3">—</span></div>
   </div>
   <div class="verdict" id="verd"></div>
-  <button class="btn lg" onclick="go(5)">See what the trained AI does →</button>
 </div>
 
-<!-- ═══ ACT 5 — TRAINED MODEL ═══ -->
+<!-- ═══ ACT 5 — COMPARISON ═══ -->
 <div class="act" id="a5">
-  <div class="a5-eye">Same patient. Same environment.</div>
+  <div class="a5-eye">Same patient · Same environment · Different model</div>
   <div class="a5-split">
     <div class="col-l">
-      <div class="col-tag">Without training — blind guess</div>
-      <div class="col-drug" id="a5-bad-drug">–</div>
-      <div class="col-sc" id="a5-bad-sc">–</div>
-      <div class="col-note" id="a5-bad-note">–</div>
+      <div class="ai-header">
+        <div class="user-name">Your Prescription</div>
+        <div class="user-sub">Human · Unaided</div>
+      </div>
+      <div class="col-drug" id="a5-user-drug">–</div>
+      <div class="col-sc-wrap"><div class="col-sc" id="a5-user-sc">–</div><div class="col-denom">/ 1.0</div></div>
+      <div class="col-verdict" id="a5-user-verdict">–</div>
     </div>
     <div class="col-r">
-      <div class="col-tag">After GRPO training</div>
+      <div class="ai-header">
+        <div class="ai-name">AMR-Steward</div>
+        <div class="ai-sub">GRPO-Trained · JEPA-Guided</div>
+      </div>
       <div class="steps" id="a5-steps"><!-- filled by JS --></div>
       <div id="trx" class="col-drug">–</div>
-      <div id="tsc">–</div>
+      <div class="col-sc-wrap"><div id="tsc">–</div><div class="col-denom" id="tsc-denom" style="opacity:0;transition:opacity .5s">/ 1.0</div></div>
     </div>
   </div>
   <div class="a5-foot">
     <div class="finalline" id="a5-finalline">–</div>
+    <div class="survivor-line" id="a5-survivor"></div>
     <div class="a5-btns">
       <button class="btn" onclick="newCase()">Try another case →</button>
       <a class="btn red" href="https://huggingface.co/saaheerpurav/amr-steward-model" target="_blank">How it was trained →</a>
@@ -373,6 +406,8 @@ let cluesRevealed = 0;
 let invDone = [];
 let selectedDrug = null;
 let currentAct = -1;
+let userScore = 0;
+let userDrug = '';
 
 /* ── NAVIGATION ────────────────────────────────────────────── */
 function go(n) {
@@ -386,6 +421,28 @@ function go(n) {
     currentAct = n;
     if (n === 5) revealA5();
   }, 300);
+}
+
+/* ── HORIZONTAL SLIDE (Act 4 → Act 5) ─────────────────────── */
+function goSlide(n) {
+  if (currentAct === n) return;
+  const prevEl = document.getElementById('a' + currentAct);
+  const nextEl = document.getElementById('a' + n);
+  if (prevEl) {
+    prevEl.classList.add('slide-left');
+    prevEl.classList.remove('active');
+  }
+  nextEl.style.transition = 'none';
+  nextEl.classList.add('slide-from-right');
+  nextEl.getBoundingClientRect(); // force reflow
+  nextEl.style.transition = '';
+  setTimeout(() => {
+    if (prevEl) prevEl.classList.remove('slide-left');
+    nextEl.classList.remove('slide-from-right');
+    nextEl.classList.add('active');
+    currentAct = n;
+    if (n === 5) revealA5();
+  }, 350);
 }
 
 /* ── CASE SETUP ────────────────────────────────────────────── */
@@ -450,21 +507,26 @@ function loadCase(c) {
   v.className = 'verdict'; v.textContent = '';
 
   // Act 5 reset
-  document.getElementById('a5-bad-drug').textContent = c.bad_drug + '\n' + c.bad_dose;
-  document.getElementById('a5-bad-sc').textContent = c.bad_sc.toFixed(2);
-  document.getElementById('a5-bad-note').textContent = c.bad_note;
+  userScore = 0; userDrug = '';
+  document.getElementById('a5-user-drug').textContent = '–';
+  document.getElementById('a5-user-sc').textContent = '–';
+  document.getElementById('a5-user-verdict').textContent = '–';
+  const sv0 = document.getElementById('a5-survivor');
+  if (sv0) { sv0.textContent = ''; sv0.classList.remove('in'); }
   const steps = document.getElementById('a5-steps');
   steps.innerHTML = '';
   c.trained_steps.forEach((s, i) => {
     const d = document.createElement('div');
     d.className = 'step'; d.id = 'st'+i;
-    d.innerHTML = `<span>${s.t}</span>`;
+    d.innerHTML = `<span class="step-txt" style="display:none">${s.t}</span><span class="step-pend">··· querying</span>`;
     steps.appendChild(d);
   });
   document.getElementById('trx').className = 'col-drug';
   document.getElementById('trx').innerHTML = `${c.trained_drug}<br><span style="font-size:.65em;opacity:.8">${c.trained_dose}</span>`;
   document.getElementById('tsc').className = '';
   document.getElementById('tsc').textContent = c.trained_sc.toFixed(2);
+  const den = document.getElementById('tsc-denom');
+  if (den) den.style.opacity = '0';
   document.getElementById('a5-finalline').innerHTML = c.final;
 }
 
@@ -539,8 +601,12 @@ async function commit() {
   const err = document.getElementById('rxerr');
   btn.disabled = true; spin.classList.add('on'); err.style.display = 'none';
   try {
-    await apiReset();
-    for (const inv of invDone) {
+    const resetResp = await apiReset();
+    // Cap replay at budget-1: when budget hits 0 the env marks done=True,
+    // making a subsequent COMMIT fail. Budget is 3 for curriculum levels 2-3.
+    const budget = resetResp?.observation?.budget_remaining ?? 3;
+    const replaySteps = invDone.slice(0, Math.max(0, budget - 1));
+    for (const inv of replaySteps) {
       await apiStep({action_type:"INVESTIGATE", tool_name:inv.tool, tool_arg:inv.arg});
     }
     const resp = await apiStep({
@@ -563,6 +629,8 @@ async function commit() {
 
 /* ── SCORE REVEAL ──────────────────────────────────────────── */
 function revealScore(score, bd) {
+  userScore = score;
+  userDrug = selectedDrug || '';
   const el = document.getElementById('scorebig');
   const cls = score < 0.5 ? 'red' : score < 0.85 ? 'amber' : 'green';
   el.className = 'scorebig ' + cls;
@@ -582,6 +650,7 @@ function revealScore(score, bd) {
     v.textContent = score < 0.5 ? 'This patient would not survive.'
                   : score < 0.85 ? 'Suboptimal treatment.' : 'Correct prescription.';
   }, 1700);
+  setTimeout(() => goSlide(5), 3500);
   go(4);
 }
 
@@ -597,23 +666,62 @@ function animNum(el, from, to, dur) {
 
 /* ── ACT 5 REVEAL ──────────────────────────────────────────── */
 function revealA5() {
-  // Populate bad column properly
-  document.getElementById('a5-bad-drug').innerHTML =
-    `${C.bad_drug}<br><span style="font-size:.65em;opacity:.5">${C.bad_dose}</span>`;
+  const d = userDrug || '';
+  const drugDisplay = d ? d.toUpperCase() : C.bad_drug;
+  const doseDisplay = (d && C.doses[d]) ? C.doses[d] : C.bad_dose;
+  const sc = userScore > 0 ? userScore : C.bad_sc;
+  const cls = sc < 0.5 ? 'red' : sc < 0.85 ? 'amber' : 'green';
+  const verdictText = sc < 0.5 ? 'Treatment fails.'
+                    : sc < 0.85 ? 'Suboptimal treatment.' : 'Correct prescription.';
+  const drugEl = document.getElementById('a5-user-drug');
+  drugEl.innerHTML = `${drugDisplay}<br><span style="font-size:.65em;opacity:.5">${doseDisplay}</span>`;
+  drugEl.style.color = cls === 'green' ? 'var(--teal)' : cls === 'amber' ? 'var(--amber)' : 'rgba(255,68,85,.7)';
+  const scEl = document.getElementById('a5-user-sc');
+  scEl.textContent = sc.toFixed(2);
+  scEl.style.color = cls === 'green' ? 'var(--teal)' : cls === 'amber' ? 'var(--amber)' : 'var(--red)';
+  const vEl = document.getElementById('a5-user-verdict');
+  vEl.textContent = verdictText;
+  vEl.style.color = cls === 'green' ? 'rgba(0,212,170,.8)' : cls === 'amber' ? 'rgba(245,166,35,.85)' : 'rgba(255,68,85,.75)';
+  document.getElementById('a5-finalline').innerHTML =
+    `Your score: <em>${sc.toFixed(2)}</em>&nbsp;&nbsp;→&nbsp;&nbsp;Trained model: <em>${C.trained_sc.toFixed(2)}</em>`;
 
-  const delays = [500, 1200, 1950];
+  const survivorHTML = sc < 0.5
+    ? `JEPA guided the investigation. Correct drug identified.<br>This patient makes it home.`
+    : sc < 0.85
+    ? `The trained model prescribes correctly.<br>Optimal drug. Optimal dose. She survives.`
+    : `You matched the trained model.<br>Both prescriptions correct. She survives.`;
+  const sv = document.getElementById('a5-survivor');
+  if (sv) sv.innerHTML = survivorHTML;
+
+  const pendAt = [0, 750, 1500];
+  const resolAt = [560, 1310, 2060];
   C.trained_steps.forEach((s, i) => {
     setTimeout(() => {
       const el = document.getElementById('st'+i);
-      if (el) el.classList.add('in', s.cls);
-    }, delays[i]);
+      if (el) el.classList.add('in');
+    }, pendAt[i]);
+    setTimeout(() => {
+      const el = document.getElementById('st'+i);
+      if (el) {
+        const pend = el.querySelector('.step-pend');
+        const txt = el.querySelector('.step-txt');
+        if (pend) pend.style.display = 'none';
+        if (txt) txt.style.display = '';
+        el.classList.add(s.cls);
+      }
+    }, resolAt[i]);
   });
-  setTimeout(() => document.getElementById('trx').classList.add('in'), 2800);
+  setTimeout(() => document.getElementById('trx').classList.add('in'), 2750);
   setTimeout(() => {
     const tsc = document.getElementById('tsc');
     tsc.classList.add('in');
     animNum(tsc, 0, C.trained_sc, 900);
-  }, 3200);
+    const den = document.getElementById('tsc-denom');
+    if (den) den.style.opacity = '.35';
+  }, 3150);
+  setTimeout(() => {
+    if (sv) sv.classList.add('in');
+  }, 3900);
 }
 
 /* ── NEW CASE ──────────────────────────────────────────────── */
