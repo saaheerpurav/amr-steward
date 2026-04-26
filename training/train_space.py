@@ -415,6 +415,22 @@ def push_model(trainer, tokenizer):
                        repo_id=HF_REPO_ID, repo_type="model")
         log("Uploaded reward_curves.png to model repo.")
 
+    # Upload per-stage log_history.json and tensorboard runs so nothing is lost when Space shuts down
+    for stage in ["stage1", "stage2", "stage3"]:
+        stage_dir = Path(f"{OUTPUT_DIR}/{stage}")
+        log_file = stage_dir / "log_history.json"
+        if log_file.exists():
+            api.upload_file(path_or_fileobj=str(log_file),
+                           path_in_repo=f"training_logs/{stage}/log_history.json",
+                           repo_id=HF_REPO_ID, repo_type="model")
+            log(f"Uploaded {stage}/log_history.json")
+        tb_dir = stage_dir / "runs"
+        if tb_dir.exists():
+            api.upload_folder(folder_path=str(tb_dir),
+                             path_in_repo=f"training_logs/{stage}/runs",
+                             repo_id=HF_REPO_ID, repo_type="model")
+            log(f"Uploaded {stage}/runs (tensorboard)")
+
 
 def plot_curves():
     try:
