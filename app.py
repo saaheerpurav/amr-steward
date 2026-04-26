@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -182,6 +182,20 @@ def jepa_rankings() -> JSONResponse:
     except Exception as exc:
         logger.exception("jepa_rankings() failed")
         return JSONResponse({"detail": str(exc), "rankings": []}, status_code=500)
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp webhook (Twilio)
+# ---------------------------------------------------------------------------
+
+@app.post("/whatsapp", include_in_schema=False)
+async def whatsapp_webhook(
+    From: str = Form(...),
+    Body: str = Form(default=""),
+) -> Response:
+    from whatsapp_bot import handle_whatsapp
+    xml = handle_whatsapp(from_number=From, body=Body)
+    return Response(content=xml, media_type="application/xml")
 
 
 # ---------------------------------------------------------------------------
