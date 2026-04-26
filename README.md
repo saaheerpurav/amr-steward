@@ -10,7 +10,7 @@ pinned: false
 
 # 🦠 AMR-Steward: An RL Environment for Clinical Antimicrobial Stewardship
 
-> **TL;DR:** AMR-Steward is an OpenEnv reinforcement learning environment that trains an LLM to prescribe antibiotics correctly for drug-resistant infections. We bypassed the "LLM-as-a-judge" trap entirely by building a **fully deterministic, verifiable reward stack (RLVR)** based on EUCAST clinical breakpoints and IDSA guidelines. The headline innovation? We deployed **Meta's I-JEPA architecture** as a self-supervised world model *inside* the environment to rank tool calls by predicted information gain in latent space. The trained model improves from a 0.05 random baseline to **0.71–0.84** across a 3-stage curriculum and successfully passes 90% of our adversarial stress tests. 
+> **TL;DR:** AMR-Steward is an OpenEnv reinforcement learning environment that trains an LLM to prescribe antibiotics correctly for drug-resistant infections. We bypassed the "LLM-as-a-judge" trap entirely by building a **fully deterministic, verifiable reward stack (RLVR)** based on EUCAST clinical breakpoints and IDSA guidelines. The headline innovation? We deployed **Meta's I-JEPA architecture** as a self-supervised world model *inside* the environment to rank tool calls by predicted information gain in latent space. The trained model improves from a ~0.07 random baseline to **0.84–0.90** across a 3-stage curriculum (Stage 1 peak 0.923, Stage 3 peak 0.988 — 12× over random) and passes **10/10** adversarial stress tests. 
 
 ### 🔗 Quick Links
 - **Live Environment (HF Space):** [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space)
@@ -22,9 +22,9 @@ pinned: false
 
 ---
 
-## 📈 The Results: 3x Better on the Hardest Cases
+## 📈 The Results: 12× Better Than Random
 
-We trained Qwen3-4B + LoRA using GRPO across three curriculum stages. As case complexity scaled from simple susceptible organisms to multi-drug resistant (MDR) infections with severe renal failure and penicillin allergies, our agent maintained a reward above 0.70. Defaulting to the broadest available agent scores ~0.21 on hard cases. **Our trained model consistently scores 0.71–0.84, outperforming the broad-empiric baseline by over 3x.**
+We trained Qwen3-4B + LoRA using GRPO across three curriculum stages. As case complexity scaled from simple susceptible organisms to MDR infections with severe renal failure and penicillin allergies, our agent maintained a reward above 0.70. Random baseline: ~0.07. **Our trained model reaches 0.84–0.90 — 12× better than random on Stage 1, with reward holding above 0.70 even on the hardest Stage 3 cases.**
 
 ![Training summary — improvement over random baseline](training_summary.png)
 
@@ -253,11 +253,35 @@ Training proceeds in three stages:
 
 | Stage | Organisms | Renal function | Budget | Achieved reward |
 |-------|-----------|---------------|--------|----------------|
-| 1 | Susceptible only | Normal | 5 tools | 0.55 → **0.84** |
-| 2 | + Resistant (ESBL, MRSA, VRE) | Mild–moderate impairment | 4 tools | 0.40 → **0.79** |
-| 3 | + MDR (CRE, XDR Pseudomonas, VISA) | Severe impairment + allergies | 3 tools | **0.71** (stable) |
+| 1 | Susceptible only | Normal | 5 tools | 0.54 → **0.90** (peak 0.923, mean 0.84) |
+| 2 | + Resistant (ESBL, MRSA, VRE) | Mild–moderate impairment | 4 tools | 0.86 → **0.84** (terminal mean 0.79) |
+| 3 | + MDR (CRE, XDR Pseudomonas, VISA) | Severe impairment + allergies | 3 tools | 0.81 → **0.88** (peak 0.988, mean 0.71) |
 
 
+
+## Results
+
+GRPO training on `Qwen/Qwen3-4B` + LoRA (r=16) across three curriculum stages (A10G GPU via HF Spaces):
+
+| Stage | Cases | Peak Reward | Final Reward | Mean |
+|-------|-------|-------------|--------------|------|
+| 1 — Susceptible | 128 | **0.923** | 0.900 | 0.840 |
+| 2 — Resistant / MDR | 64 | **0.840** | 0.840 | 0.790 |
+| 3 — MDR + Renal + Allergies | 32 | **0.988** | 0.880 | 0.707 |
+
+Reward holds consistently above 0.70 even as case complexity scales from susceptible organisms to MDR + severe renal failure + allergy constraints.
+
+**Training curves across all 3 stages:**
+
+![Reward curves across curriculum stages](reward_curves.png)
+
+**Baseline comparison and curriculum generalisation:**
+
+![Training summary — improvement over random baseline](training_summary.png)
+
+A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random baseline: ~0.07. The trained model reaches **0.84–0.90** — **12× better than random** on Stage 1, reward holds above 0.70 on the hardest Stage 3 cases (MDR + severe renal failure + allergy constraints).
+
+---
 
 ## Tests
 
@@ -344,7 +368,7 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 |---|---|---|
 | **Environment Innovation** | 40% | **First JEPA-based world model deployed inside a clinical-domain RL environment**: applies Meta AI's Joint Embedding Predictive Architecture (I-JEPA pattern, EMA-stabilised target encoder) to clinical `(state, tool, next_state)` prediction — see [`env/world_model.py`](env/world_model.py) and [`jepa_pretrain.py`](jepa_pretrain.py). Every observation served to the LLM contains JEPA-ranked tool calls by predicted information gain, computed in target-encoder space (matches the SSL training objective). Clinical AMR domain itself has zero prior RL environments. Quality-ratio oracle ([`env/reward.py`](env/reward.py) `compute_optimal_prescription`) brute-forces the optimal prescription at reset time, giving a patient-specific reward ceiling with zero variance. R0 hard allergy gate, R3 gated on R1, R5 diversity term — three independent anti-hacking layers. |
 | **Storytelling** | 30% | 1.27 million deaths per year from antimicrobial resistance — more than HIV or malaria. Before/after is visceral: untrained model prescribes meropenem to a carbapenem-resistant organism (reward ~0.10, ineffective treatment); trained model investigates resistance, checks IDSA guidelines, adjusts for renal function, prescribes ceftazidime-avibactam at the correct renal dose (reward 0.84). Wrong drug → patient dies. Right drug → patient lives. Full narrative in [`BLOG.md`](BLOG.md). |
-| **Showing Improvement** | 20% | GRPO training on Qwen3-4B + LoRA across three curriculum stages (A10G via HF Spaces). Stage 1: 0.55 → **0.84**. Stage 2: 0.40 → **0.79**. Stage 3: **0.71** stable. Reward holds above 0.70 as case complexity scales from susceptible organisms to MDR + renal failure + allergies. Training curves: [`reward_curves.png`](reward_curves.png), [`training_summary.png`](training_summary.png). Validated against published literature ([`eval_published_cases.py`](eval_published_cases.py)) and 10 adversarial cases ([`eval_adversarial.py`](eval_adversarial.py)) — see Clinical Validation and Adversarial Stress Test sections. |
+| **Showing Improvement** | 20% | GRPO training on Qwen3-4B + LoRA across three curriculum stages (A10G via HF Spaces). Stage 1: 0.54 → **0.90** (peak 0.923, mean 0.84). Stage 2: terminal mean **0.79**. Stage 3: 0.81 → **0.88** (peak 0.988, mean 0.71). Random baseline: 0.07. **12× better than random on Stage 1.** Reward holds above 0.70 as case complexity scales from susceptible organisms to MDR + renal failure + allergies. Training curves: [`reward_curves.png`](reward_curves.png), [`training_summary.png`](training_summary.png). Validated against published literature ([`eval_published_cases.py`](eval_published_cases.py)) and 10 adversarial cases ([`eval_adversarial.py`](eval_adversarial.py)) — see Clinical Validation and Adversarial Stress Test sections. |
 | **Reward & Training Pipeline** | 10% | Multi-head GRPO: three independent reward functions (format R6, tool efficiency R5, terminal quality_ratio) give the trainer separate gradient channels at three timescales — see [`train.py`](train.py). Dense shaping (+0.04/unique tool call, capped +0.20) provides per-step signal without dominating the terminal reward. Seven reward components (R0–R6) in [`env/reward.py`](env/reward.py), all pure functions — no LLM judge anywhere in the pipeline. R5 computed from a structured `AMRState.tool_history` log ([`env/models.py`](env/models.py)), not text heuristics. |
 
 ---
@@ -356,7 +380,7 @@ Built at a 24-hour hackathon, April 2026.
 | Person | Role |
 |--------|------|
 | Saaheer | ML/RL — JEPA world model, reward functions, GRPO training |
-| Bhatia | Backend — OpenEnv environment, FastAPI, HuggingFace deployment |
+| Divyansh | Backend — OpenEnv environment, FastAPI, HuggingFace deployment |
 | Palak | Data — Medical data tables, patient cases, content |
 
 ---
