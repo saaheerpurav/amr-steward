@@ -14,42 +14,28 @@ We built an OpenEnv RL environment that teaches an LLM (Qwen3-4B + LoRA, GRPO) t
 
 ## 1. The Problem
 
-Antimicrobial resistance kills **1.27 million people per year** — more than HIV or malaria combined — and the [WHO projects](https://www.who.int/news-room/fact-sheets/detail/antimicrobial-resistance) it could surpass cancer as a leading cause of death by 2050. The single biggest preventable driver is **inappropriate antibiotic prescribing**: wrong drug, wrong dose, or a broad-spectrum agent used when a narrow one would have worked.
+Antimicrobial resistance (AMR) kills **1.27 million people per year**—more than HIV or malaria. A massive driver of this is **inappropriate antibiotic prescribing**: wrong drug, wrong dose, or dropping a broad-spectrum "nuke" when a targeted agent would work.
 
-Antibiotic stewardship programs exist to fix this, but they are expensive, understaffed, and unavailable in most of the world. So we asked: **can an LLM learn to prescribe correctly — not by memorising guidelines, but by reasoning through resistance data, patient factors, and clinical evidence the way a trained physician would?**
+Antibiotic stewardship programs exist to fix this, but require scarce human experts. We asked: **can an LLM learn to prescribe correctly by reasoning through resistance data and clinical evidence like a physician?**
 
-This is a perfect fit for **RL with verified rewards (RLVR)**. Unlike "is this poem good?", the question "did this prescription cover the bacteria, follow IDSA guidelines, use the narrowest active spectrum, and dose appropriately for renal function?" can be answered with deterministic lookup tables. No subjective judge needed.
+This is a perfect fit for **RL with verified rewards (RLVR)**. We can deterministically verify if a prescription covered the bacteria, followed IDSA guidelines, used the narrowest spectrum, and dosed correctly. No subjective judge needed.
 
 ---
 
 ## 2. Why an OpenEnv Fit
 
-OpenEnv (Meta-PyTorch's Gymnasium-style RL framework) gave us four things that mattered:
+OpenEnv gave us four critical things out of the box:
 
-1. **Structured `Action` + `Observation`** via Pydantic — no string-parsing the model output. The agent emits `{"action_type": "INVESTIGATE", "tool_name": "interpret_resistance", "tool_arg": "meropenem"}` and we validate it before stepping the env.
-2. **`Environment` base class with `reset` / `step` / `state`** — drops directly into TRL's `GRPOTrainer` and any future Gymnasium-compatible algorithm.
-3. **HTTP server + HuggingFace Spaces deployment** — the same env code runs locally for training and over HTTP for the live demo. Judges can `curl` it without cloning.
-4. **State persistence via `SUPPORTS_CONCURRENT_SESSIONS`** — multiple agents can hit the env simultaneously without trampling each other's episodes.
-
-The env is structured as:
-
-```
-env/
-  models.py        AMRAction, AMRObservation, AMRState (Pydantic + dataclasses)
-  environment.py   AMREnvironment(openenv.core.env_server.Environment)
-  reward.py        R0-R6 pure-function reward components
-  world_model.py   JEPA world model for tool-call ranking
-data/
-  eucast.csv               EUCAST v16.0 clinical breakpoints
-  idsa_guidelines.json     IDSA 2022/2023 first-line + alternatives
-  drug_properties.json     Renal adjustments, allergy flags, spectrum
-```
+1. **Structured `Action` + `Observation`** via Pydantic—no messy string-parsing.
+2. **`Environment` base class**—drops directly into TRL's `GRPOTrainer`.
+3. **HTTP server + HF Spaces**—same code runs locally for training and over HTTP for the live demo.
+4. **State persistence**—multiple concurrent training episodes without trampling state.
 
 ---
 
 ## 3. Reward Design — The RLVR Stack
 
-Seven independent reward components, all pure functions:
+We built seven independent reward components, all pure functions:
 
 | | Component | What it measures | Range |
 |---|---|---|---|
@@ -61,7 +47,7 @@ Seven independent reward components, all pure functions:
 | R5 | Tool efficiency | (unique_tool_types / spent) × (remaining / total) | [0, 1] |
 | R6 | Output format | Single COMMIT line, ≤3 lines reasoning | [0, 1] |
 
-The clever bit is **the quality ratio**:
+**The Quality Ratio:**
 
 ```python
 process_score = 0.40·R1 + 0.25·R2 + 0.15·R3 + 0.10·R4
@@ -70,12 +56,12 @@ quality_ratio = min(1.0, process_score / opt_score)     # ∈ [0, 1]
 total         = 0.90·quality_ratio + 0.10·R5
 ```
 
-`compute_optimal_prescription` iterates the entire antibiogram, builds the IDSA-recommended dose at the patient's CrCl tier, and returns the maximum process score this *specific* patient could possibly achieve. So the reward ceiling is patient-specific (not a global constant), and `quality_ratio = 1.0` if and only if the agent found the IDSA-first-line drug at the correct dose. This is what makes the reward **RLVR-verifiable** rather than just a fixed-target heuristic.
+Our oracle (`compute_optimal_prescription`) calculates the maximum score this *specific* patient could possibly achieve. The reward ceiling is patient-specific, making the reward truly **RLVR-verifiable**.
 
-**Three independent anti-hacking layers**:
-- R0 is a hard gate — allergy violation zeros the entire reward, regardless of how brilliant R1–R5 are.
-- R3 is gated on R1 — you can't get stewardship credit for prescribing a narrow drug that doesn't work.
-- R5's diversity term penalises repeated calls to the same tool, even with different arguments.
+**Anti-hacking layers**:
+- R0 is a hard gate—allergy violation zeros the entire reward.
+- R3 is gated on R1—no stewardship credit for inactive drugs.
+- R5 penalizes repeated calls to the same tool.
 
 ---
 
@@ -95,47 +81,35 @@ Each head provides a different learning signal at a different timescale. The for
 
 This is the headline ML contribution of the project.
 
-AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model that acts as a *learned prior* over tool utility. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment.** The same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
+AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** — as a self-supervised world model to act as a *learned prior* over tool utility. **To our knowledge, this is the first JEPA-based world model deployed inside a clinical RL environment.**
 
-**What JEPA is — and is not**: JEPA does **not** fine-tune the LLM's LoRA weights. It is a **latent-space guidance system** — a compact self-supervised model (≈50K params) that predicts, in embedding space, how each available tool call would change the agent's known clinical state. These predictions flow into the RL training loop through three concrete mechanisms: observation hints, JEPA-weighted reward shaping, and a latent consistency bonus.
-
-**Honest scope**: ~50K parameters total — appropriate for a 64-dim handcrafted clinical state vector, not vision-scale. The contribution is *correct application of I-JEPA's SSL pattern to a new domain*, not a new architecture.
-
-We pretrain on synthetic `(state, tool, next_state)` triples drawn from 500 seeded episodes from the same patient distribution as RL training.
+**What JEPA is**: It is a compact self-supervised model (≈50K params) that predicts, in embedding space, how each available tool call will change the known clinical state. These predictions flow into the RL training loop via observation hints, reward shaping, and latent consistency bonuses.
 
 **Training objective** (faithful to I-JEPA):
 
 ```
-ctx_repr  = context_encoder(s_before)         # 64-dim state → 128-dim repr
-pred_repr = predictor(concat(ctx_repr, tool)) # predict next-state representation
+ctx_repr  = context_encoder(s_before)         
+pred_repr = predictor(concat(ctx_repr, tool)) 
 tgt_repr  = target_encoder(s_after)           # EMA-stabilised target (stop-gradient)
 
-Loss = MSE(pred_repr, tgt_repr)               # trained on synthetic rollouts
+Loss = MSE(pred_repr, tgt_repr)               
 ```
 
-**The EMA target encoder — the anti-collapse mechanism**: The `target_encoder` is updated only as a slow EMA of `context_encoder` (decay τ = 0.99) — never via backpropagation:
+**The EMA target encoder**: The `target_encoder` is updated only as a slow EMA of `context_encoder` (decay τ = 0.99) — never via backpropagation. Without this, the model collapses all representations to a constant. EMA stabilization is the "secret sauce" of JEPA.
 
-```
-θ_target ← τ · θ_target + (1 − τ) · θ_context
-```
-
-Without this, the model trivially minimises the JEPA loss by collapsing all representations to a constant (`pred_repr ≈ tgt_repr ≈ 0`). EMA stabilisation keeps the target distribution slowly but continuously moving, forcing the predictor to learn genuinely informative representations. This is what Meta engineers specifically look for in a correct JEPA implementation — and a common place where ports fail.
-
-**At inference**, the world model ranks every available tool by predicted information gain in target-encoder space:
+**At inference**, the world model ranks tools by predicted information gain in target-encoder space:
 
 ```
 gain(tool t) = ‖predictor(context_encoder(s), t) − target_encoder(s)‖₂ / √d_repr
 ```
 
-Both operands live in **target-encoder space** — matching the SSL training geometry exactly. Anchoring against `context_encoder(s)` at serve time (the common mistake) would mismatch the training objective and produce uncalibrated scores.
+Both operands live in **target-encoder space** — matching the SSL training geometry exactly.
 
 **Three ways JEPA acts as a learned prior during RL training:**
 
-1. **Observation prior** — The top-K ranked tools by predicted gain are appended to every observation served to the LLM, providing a data-driven signal for investigation order without hard constraints.
-
-2. **JEPA-weighted reward shaping** — INVESTIGATE step bonuses are scaled by the predicted information-gain score (0.5×–1.5× multiplier on the `+0.04` dense bonus). Agents that pick the world model's highest-predicted tool earn a larger bonus; picking the lowest-gain tool earns a reduced one. This directly ties the reward signal to JEPA's latent-space predictions — the agent is not merely *reading* JEPA's suggestions, it is *rewarded* for following them.
-
-3. **Latent state consistency** — After each INVESTIGATE step, the actual state delta in target-encoder space is measured: `‖target_encoder(s_after) − target_encoder(s_before)‖₂`. A small curiosity bonus proportional to this delta rewards tool calls that revealed genuinely surprising (high-information) state changes, even if they weren't JEPA's top prediction.
+1. **Observation prior** — Top-K tools appended to observations.
+2. **Reward shaping** — INVESTIGATE step bonuses are scaled (0.5×–1.5×) by predicted information-gain. The agent is *rewarded* for making the right investigation step.
+3. **Latent state consistency** — A curiosity bonus rewards tool calls that genuinely surprise the model (high actual state delta in target-encoder space).
 
 ---
 

@@ -8,26 +8,37 @@ app_file: app.py
 pinned: false
 ---
 
-# AMR-Steward
+# 🦠 AMR-Steward: An RL Environment for Clinical Antimicrobial Stewardship
 
-**RL environment for clinical antimicrobial stewardship.** Trains an LLM to prescribe the right antibiotic for drug-resistant bacterial infections — verified against EUCAST breakpoints and IDSA guidelines. **No LLM judges. No subjectivity. Pure lookup tables.**
+> **TL;DR:** AMR-Steward is an OpenEnv reinforcement learning environment that trains an LLM to prescribe antibiotics correctly for drug-resistant infections. We bypassed the "LLM-as-a-judge" trap entirely by building a **fully deterministic, verifiable reward stack (RLVR)** based on EUCAST clinical breakpoints and IDSA guidelines. The headline innovation? We deployed **Meta's I-JEPA architecture** as a self-supervised world model *inside* the environment to rank tool calls by predicted information gain in latent space. The trained model improves from a 0.05 random baseline to **0.71–0.84** across a 3-stage curriculum and successfully passes 90% of our adversarial stress tests. 
 
-**Stack:** OpenEnv · TRL GRPOTrainer · Unsloth (Colab) · Qwen3-4B + LoRA · **JEPA world model (Meta I-JEPA pattern)** · HuggingFace Spaces
+### 🔗 Quick Links
+- **Live Environment (HF Space):** [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space)
+- **Trained Model (HF Hub):** [saaheerpurav/amr-steward-model](https://huggingface.co/saaheerpurav/amr-steward-model)
+- **Training Notebook (Colab):** [AMR_Steward.ipynb](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb)
+- **Technical Blog:** [BLOG.md](BLOG.md)
+- **Source Code:** [GitHub Repository](https://github.com/saaheerpurav/amr-steward)
+- **Comprehensive Docs:** [Architecture](docs/Architecture.md) | [Reward Spec](docs/Reward-spec.md)
 
 ---
 
-## Submission Deliverables (Quick Links)
+## 📈 The Results: 3x Better on the Hardest Cases
 
-| Deliverable | URL | Status |
-|---|---|---|
-| **Live OpenEnv (HF Space)** | [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space) | Public, cloneable, 200 OK |
-| **Trained Model (HF Hub)** | [saaheerpurav/amr-steward-model](https://huggingface.co/saaheerpurav/amr-steward-model) | Public |
-| **Source Repository** | [github.com/saaheerpurav/amr-steward](https://github.com/saaheerpurav/amr-steward) | Public |
-| **Technical Writeup** | [BLOG.md](BLOG.md) | 10-section technical writeup |
-| **Training Notebook** | [AMR_Steward.ipynb](AMR_Steward.ipynb) · [Open in Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb) | Re-runnable end-to-end |
-| **Browser Demo UI** | [demo_web/index.html](demo_web/index.html) | Interactive env walker |
-| **Reward Curves (PNG)** | [reward_curves.png](reward_curves.png) | Embedded below |
-| **Training Summary (PNG)** | [training_summary.png](training_summary.png) | Embedded below |
+We trained Qwen3-4B + LoRA using GRPO across three curriculum stages. As case complexity scaled from simple susceptible organisms to multi-drug resistant (MDR) infections with severe renal failure and penicillin allergies, our agent maintained a reward above 0.70. Defaulting to the broadest available agent scores ~0.21 on hard cases. **Our trained model consistently scores 0.71–0.84, outperforming the broad-empiric baseline by over 3x.**
+
+![Training summary — improvement over random baseline](training_summary.png)
+
+![Reward curves across curriculum stages](reward_curves.png)
+
+---
+
+## 📖 The Story: Why This Matters
+
+Antimicrobial resistance (AMR) is a silent pandemic. It kills **1.27 million people per year**—more than HIV or malaria. A central driver of this crisis is inappropriate antibiotic prescribing: using the wrong drug, the wrong dose, or a broad-spectrum "nuke" when a targeted "sniper rifle" would have worked.
+
+Antibiotic stewardship programs exist to fix this, but they require highly specialized, expensive human experts. 
+
+**AMR-Steward asks a fundamental question:** Can an LLM learn to prescribe correctly—not by memorizing static text guidelines, but by actively reasoning through resistance data, patient factors, and clinical evidence the way an infectious disease physician would?
 
 ---
 
@@ -246,33 +257,7 @@ Training proceeds in three stages:
 | 2 | + Resistant (ESBL, MRSA, VRE) | Mild–moderate impairment | 4 tools | 0.40 → **0.79** |
 | 3 | + MDR (CRE, XDR Pseudomonas, VISA) | Severe impairment + allergies | 3 tools | **0.71** (stable) |
 
----
 
-## Results
-
-GRPO training on `Qwen/Qwen3-4B` + LoRA (r=16) across three curriculum stages (A10G GPU via HF Spaces):
-
-| Stage | Cases | Peak Reward | Final Reward |
-|-------|-------|-------------|--------------|
-| 1 — Susceptible | 128 | **0.840** | 0.840 |
-| 2 — Resistant / MDR | 64 | **0.790** | 0.790 |
-| 3 — MDR + Renal + Allergies | 32 | **0.707** | 0.707 |
-
-Reward holds consistently above 0.70 even as case complexity scales from susceptible organisms to MDR + severe renal failure + allergy constraints.
-
-**Training curves across all 3 stages:**
-
-![Reward curves across curriculum stages](reward_curves.png)
-
-**Baseline comparison and curriculum generalisation:**
-
-![Training summary — improvement over random baseline](training_summary.png)
-
-A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Defaulting to the broadest available agent (e.g. meropenem) scores 0.21–0.47 across levels. The trained model consistently scores **0.71–0.84** across all stages.
-
-**3× better than the broad-empiric baseline on the hardest drug-resistant cases** (Level 3: 0.71 vs 0.21).
-
----
 
 ## Tests
 
@@ -351,19 +336,7 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 
 **Why these pathogens specifically:** The environment covers the five bacteria designated as *critical priority* by the WHO Global Priority Pathogens List — *K. pneumoniae*, *E. coli*, *P. aeruginosa*, *S. aureus*, and *Enterococcus*. These five account for the overwhelming majority of drug-resistant infection deaths globally and are the primary targets of antibiotic stewardship programs worldwide. Scope is intentionally narrow and medically verified rather than broad and approximate — every breakpoint and guideline entry in the environment is traceable to a published EUCAST or IDSA source.
 
----
 
-## Links
-
-| Resource | URL |
-|----------|-----|
-| Live Environment (HF Space) | https://divyanshb06-amrsteward.hf.space |
-| Trained Model (HF Hub) | https://huggingface.co/saaheerpurav/amr-steward-model |
-| Training Notebook (Colab) | https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb |
-| Technical Writeup | [BLOG.md](BLOG.md) |
-| Source Repository | https://github.com/saaheerpurav/amr-steward |
-
----
 
 ## Judging Criteria
 
