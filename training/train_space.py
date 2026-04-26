@@ -2,7 +2,7 @@
 AMR-Steward Training Space entrypoint.
 
 Runs in an HF Space with GPU hardware.
-Clones repo → trains with Unsloth GRPO → pushes model to HF Hub.
+Clones repo → trains with TRL GRPOTrainer + PEFT LoRA → pushes model to HF Hub.
 Also serves a minimal status page on :7860 so the Space stays healthy.
 """
 

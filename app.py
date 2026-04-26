@@ -175,20 +175,21 @@ Renal function: CrCl 35 mL/min (moderate impairment).
 Allergies: None reported.</pre>
 
       <table>
-        <thead><tr><th>Model</th><th>Prescription</th><th>Reward</th></tr></thead>
+        <thead><tr><th>Prescription</th><th>Drug</th><th>Reward</th></tr></thead>
         <tbody>
           <tr>
-            <td>Untrained</td>
-            <td><span class="badge-bad">Meropenem 1g IV q8h</span> — resistant organism</td>
+            <td>Broad-spectrum guess (no investigation)</td>
+            <td><span class="badge-bad">Meropenem 1g IV q8h</span> — carbapenem-resistant organism, wrong drug</td>
             <td>0.12</td>
           </tr>
           <tr>
-            <td>GRPO-trained</td>
-            <td><span class="badge-good">Ceftazidime/avibactam 2.5g IV q12h (renal-adjusted)</span></td>
+            <td>IDSA first-line, renal-adjusted (GRPO-trained model peak: 0.84)</td>
+            <td><span class="badge-good">Ceftazidime/avibactam 2.5g IV q12h</span></td>
             <td>0.91</td>
           </tr>
         </tbody>
       </table>
+      <p style="font-size:0.85em;color:#8b949e;">Reward 0.91 = optimal prescription for this case. Trained model avg: 0.71–0.84 across 224 curriculum cases. Random baseline: 0.05–0.10.</p>
 
       <h2>OpenEnv API</h2>
       <pre>POST /reset    body: {"curriculum_level": 1}
