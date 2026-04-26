@@ -44,7 +44,7 @@ Three curriculum stages — susceptible organisms → MDR + severe renal failure
 | **2 — Resistant/MDR** | + ESBL, MRSA, VRE | 4 tools | 64 | 0.86 → **0.84** | 0.840 | 0.790 |
 | **3 — MDR + Renal + Allergies** | + CRE, XDR Pseudomonas, VISA | 3 tools | 32 | 0.81 → **0.88** | **0.988** | 0.707 |
 
-Random baseline: **~0.07**. Trained model: **12× better** on Stage 1, **10× better** on Stage 3.
+Broad-empiric baseline: **0/10** adversarial cases passed. Trained model: **10/10**. Scores 0.71–0.88 vs 0.21 for broad-empiric on the hardest MDR cases.
 
 Reward holds **above 0.70** even at Stage 3 — MDR organisms, CrCl 8, penicillin allergy, 3-tool budget.
 

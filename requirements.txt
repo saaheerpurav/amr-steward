@@ -1,4 +1,4 @@
-# AMR-Steward — Backend dependencies (Bhatia Task B9)
+# AMR-Steward — Backend dependencies
 # Pinned to compatible ranges for reproducibility.
 # For HuggingFace Spaces: pip install -r requirements.txt
 
@@ -23,3 +23,8 @@ datasets>=2.19.0
 transformers>=4.51.0
 accelerate>=0.34.0
 peft>=0.11.0
+
+# ── WhatsApp bot ───────────────────────────────────────────────────────────────
+twilio>=8.0.0
+openai>=1.0.0
+python-dotenv>=1.0.0
