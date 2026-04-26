@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMR-Steward</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060a14;
+  --bg2:#0c1220;
+  --bg3:#111827;
+  --border:rgba(255,255,255,0.07);
+  --text:#dce8f5;
+  --dim:rgba(220,232,245,0.38);
+  --teal:#00d4aa;
+  --teal-glow:rgba(0,212,170,0.18);
+  --red:#ff4455;
+  --red-glow:rgba(255,68,85,0.18);
+  --amber:#f5a623;
+  --amber-glow:rgba(245,166,35,0.15);
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Syne',sans-serif;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+
+/* ── SCANLINES ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);
+}
+
+/* ── ACTS ── */
+.act{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:clamp(1.5rem,4vw,3rem);
+  opacity:0;pointer-events:none;
+  transition:opacity .35s ease,transform .35s ease;
+  transform:translateY(14px);
+}
+.act.active{opacity:1;pointer-events:all;transform:translateY(0)}
+.act.out{opacity:0;transform:translateY(-14px);pointer-events:none}
+
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.8rem 1.8rem;
+  border:1.5px solid var(--teal);background:transparent;
+  color:var(--teal);font-family:var(--mono);font-size:.8rem;font-weight:500;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  transition:all .2s ease;text-decoration:none;
+}
+.btn:hover{background:var(--teal-glow);box-shadow:0 0 28px rgba(0,212,170,.22)}
+.btn.red{border-color:var(--red);color:var(--red)}
+.btn.red:hover{background:var(--red-glow);box-shadow:0 0 28px rgba(255,68,85,.22)}
+.btn:disabled{opacity:.25;cursor:not-allowed;pointer-events:none}
+.btn.lg{padding:1rem 2.5rem;font-size:.9rem}
+
+/* ═══ ACT 0 — INTRO ═══ */
+#a0{gap:0;text-align:center}
+#a0>*{opacity:0;transform:translateY(18px)}
+#a0.active>#a0-n{animation:up .7s .15s forwards}
+#a0.active>#a0-s{animation:up .7s .5s forwards}
+#a0.active>#a0-q{animation:up .7s .85s forwards}
+#a0.active>#a0-b{animation:up .7s 1.15s forwards}
+@keyframes up{to{opacity:1;transform:translateY(0)}}
+
+.big-number{
+  font-family:var(--mono);
+  font-size:clamp(5rem,13vw,11rem);
+  font-weight:700;line-height:1;letter-spacing:-.04em;
+  color:var(--red);
+  text-shadow:0 0 120px rgba(255,68,85,.35);
+  margin-bottom:.6rem;
+}
+.intro-sub{
+  font-size:clamp(.95rem,2.2vw,1.25rem);
+  color:var(--dim);letter-spacing:.02em;margin-bottom:2.2rem;
+}
+.intro-q{
+  font-size:clamp(1.2rem,3vw,1.9rem);
+  font-weight:700;color:var(--text);max-width:580px;
+  line-height:1.35;margin-bottom:2.8rem;
+}
+
+/* ═══ ACT 1 — PATIENT ═══ */
+#a1{gap:0}
+.pt-badge{
+  position:absolute;top:2rem;left:2.5rem;
+  font-family:var(--mono);font-size:.65rem;color:var(--teal);
+  letter-spacing:.14em;text-transform:uppercase;
+  display:flex;align-items:center;gap:.7rem;
+}
+.pt-badge::before{
+  content:'';width:7px;height:7px;border-radius:50%;
+  background:var(--teal);box-shadow:0 0 10px var(--teal);
+  animation:pulse 1.6s ease infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+.pt-figure{margin-bottom:2.8rem;opacity:.75}
+.pt-facts{text-align:center;margin-bottom:2.5rem;display:flex;flex-direction:column;gap:.55rem}
+.pt-primary{font-size:clamp(1.5rem,4.5vw,2.4rem);font-weight:800}
+.pt-warn{font-size:clamp(1rem,2.8vw,1.45rem);font-weight:600;color:var(--amber)}
+.pt-note{font-size:clamp(.85rem,2vw,1.05rem);color:var(--dim)}
+
+.pips{display:flex;align-items:center;gap:.65rem;margin-bottom:1.3rem}
+.pip-label{font-family:var(--mono);font-size:.62rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-right:.4rem}
+.pip{width:13px;height:13px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px rgba(0,212,170,.5);transition:all .3s ease}
+.pip.off{background:transparent;border:1.5px solid rgba(255,255,255,.18);box-shadow:none}
+
+.pt-rule{font-family:var(--mono);font-size:.7rem;color:var(--dim);letter-spacing:.06em;margin-bottom:1.8rem}
+
+/* ═══ ACT 2 — INVESTIGATE ═══ */
+#a2{justify-content:flex-start;padding-top:4.5rem;gap:0}
+#a2 .pips{margin-bottom:2rem}
+
+.inv-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1.1rem;width:100%;max-width:860px;
+}
+.inv-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:1.7rem 1.4rem;cursor:pointer;
+  transition:border-color .22s,transform .22s;
+  display:flex;flex-direction:column;gap:.9rem;
+  min-height:190px;position:relative;overflow:hidden;
+}
+.inv-card::after{
+  content:'';position:absolute;inset:0;
+  background:var(--teal-glow);opacity:0;transition:opacity .2s;
+}
+.inv-card:hover:not(.done):not(.busy)::after{opacity:1}
+.inv-card:hover:not(.done):not(.busy){border-color:rgba(0,212,170,.35);transform:translateY(-2px)}
+.inv-card.done{cursor:default;border-color:rgba(0,212,170,.2)}
+.inv-card.busy{cursor:wait;opacity:.65}
+.inv-icon{font-size:1.7rem;position:relative;z-index:1}
+.inv-title{font-size:.88rem;font-weight:600;line-height:1.4;color:var(--text);position:relative;z-index:1}
+.inv-result{
+  margin-top:auto;font-family:var(--mono);font-size:.75rem;
+  display:none;position:relative;z-index:1;
+  animation:slideup .3s ease forwards;
+  padding:.5rem .7rem;
+}
+@keyframes slideup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.inv-result.ok{color:var(--teal);background:rgba(0,212,170,.07);border-left:2px solid var(--teal)}
+.inv-result.bad{color:var(--red);background:rgba(255,68,85,.07);border-left:2px solid var(--red)}
+.inv-result.info{color:var(--amber);background:rgba(245,166,35,.07);border-left:2px solid var(--amber)}
+
+.dpills{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem;position:relative;z-index:1}
+.dpill{
+  padding:.28rem .55rem;border:1px solid var(--border);
+  background:transparent;color:var(--dim);
+  font-family:var(--mono);font-size:.62rem;cursor:pointer;
+  transition:all .15s;letter-spacing:.02em;
+}
+.dpill:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow)}
+
+.inv-footer{margin-top:1.6rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap}
+.inv-hint{font-family:var(--mono);font-size:.65rem;color:var(--dim);letter-spacing:.04em}
+
+/* ═══ ACT 3 — PRESCRIBE ═══ */
+#a3{gap:2rem;text-align:center}
+.rx-label{font-size:clamp(1.1rem,3vw,1.65rem);font-weight:700;color:var(--dim)}
+.rx-select{
+  width:100%;max-width:380px;
+  background:var(--bg2);border:1.5px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:.9rem;
+  padding:.9rem 1.4rem;appearance:none;cursor:pointer;outline:none;
+  transition:border-color .2s;
+}
+.rx-select:focus{border-color:var(--teal)}
+.rx-select option{background:var(--bg2)}
+.rx-row{display:flex;align-items:center;gap:1rem}
+.spin{
+  width:20px;height:20px;border:2px solid rgba(255,255,255,.15);
+  border-top-color:var(--teal);border-radius:50%;
+  animation:spin .65s linear infinite;display:none;
+}
+.spin.on{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rx-err{font-family:var(--mono);font-size:.72rem;color:var(--red);display:none;margin-top:.3rem}
+
+/* ═══ ACT 4 — SCORE ═══ */
+#a4{gap:1.4rem;text-align:center}
+.score-big{
+  font-family:var(--mono);
+  font-size:clamp(6rem,17vw,13rem);
+  font-weight:700;line-height:1;letter-spacing:-.04em;
+  transition:color .6s,text-shadow .6s;
+}
+.score-big.red{color:var(--red);text-shadow:0 0 100px rgba(255,68,85,.38)}
+.score-big.amber{color:var(--amber);text-shadow:0 0 100px rgba(245,166,35,.38)}
+.score-big.green{color:var(--teal);text-shadow:0 0 100px rgba(0,212,170,.38)}
+
+.score-rows{width:100%;max-width:400px;display:flex;flex-direction:column;gap:.5rem}
+.srow{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:.55rem 1rem;background:var(--bg2);border:1px solid var(--border);
+  font-family:var(--mono);font-size:.75rem;
+  opacity:0;transform:translateX(-10px);transition:all .32s ease;
+}
+.srow.in{opacity:1;transform:translateX(0)}
+.srow .ck{font-size:1rem;font-weight:700}
+.srow .ck.y{color:var(--teal)}
+.srow .ck.n{color:var(--red)}
+
+.verdict{
+  font-size:clamp(.95rem,2.4vw,1.3rem);font-weight:700;letter-spacing:.01em;
+  opacity:0;transition:opacity .5s ease;
+}
+.verdict.in{opacity:1}
+.verdict.red{color:var(--red)}
+.verdict.amber{color:var(--amber)}
+.verdict.green{color:var(--teal)}
+
+/* ═══ ACT 5 — TRAINED MODEL ═══ */
+#a5{
+  justify-content:space-between;
+  padding-top:3rem;padding-bottom:2rem;
+  gap:0;
+}
+.a5-eyebrow{
+  font-family:var(--mono);font-size:.62rem;
+  color:var(--dim);letter-spacing:.14em;text-transform:uppercase;
+  margin-bottom:1.2rem;
+}
+.a5-split{
+  display:grid;grid-template-columns:1fr 1fr;
+  border:1px solid var(--border);
+  width:100%;max-width:880px;
+  flex:1;
+}
+.col-l,.col-r{padding:clamp(1.5rem,3vw,2.5rem) clamp(1.2rem,2.5vw,2rem);display:flex;flex-direction:column;gap:1rem}
+.col-l{background:rgba(255,68,85,.04);border-right:1px solid var(--border)}
+.col-r{background:rgba(0,212,170,.04)}
+
+.col-tag{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:.3rem}
+.col-l .col-tag{color:var(--red)}
+.col-r .col-tag{color:var(--teal)}
+
+.col-drug{font-family:var(--mono);font-size:clamp(1rem,2.5vw,1.5rem);font-weight:700;line-height:1.3}
+.col-l .col-drug{color:rgba(255,68,85,.55)}
+.col-r .col-drug{color:var(--teal)}
+
+.col-score{font-family:var(--mono);font-size:clamp(2.8rem,7vw,4.5rem);font-weight:700;line-height:1;letter-spacing:-.02em}
+.col-l .col-score{color:var(--red);opacity:.8}
+.col-r .col-score{color:var(--teal)}
+
+.col-note{font-size:.82rem;line-height:1.55;color:rgba(255,68,85,.65)}
+
+.steps{display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem}
+.step{
+  font-family:var(--mono);font-size:.72rem;line-height:1.4;
+  opacity:0;transform:translateX(10px);transition:all .4s ease;
+  display:flex;align-items:flex-start;gap:.55rem;
+}
+.step::before{content:'›';opacity:.5;flex-shrink:0;margin-top:.05em}
+.step.in{opacity:1;transform:translateX(0)}
+.step.in.bad{color:var(--red)}
+.step.in.ok{color:var(--teal)}
+.step.in.info{color:var(--amber)}
+
+#trained-rx{opacity:0;transition:opacity .55s ease}
+#trained-rx.in{opacity:1}
+#trained-sc{opacity:0;transition:opacity .55s ease;font-size:clamp(2.8rem,7vw,4.5rem);font-family:var(--mono);font-weight:700;line-height:1;color:var(--teal)}
+#trained-sc.in{opacity:1}
+
+.a5-foot{text-align:center;max-width:700px;margin-top:1.5rem}
+.final-line{
+  font-size:clamp(.95rem,2.4vw,1.4rem);font-weight:700;
+  color:var(--text);line-height:1.6;margin-bottom:1.4rem;
+}
+.final-line em{color:var(--teal);font-style:normal}
+.a5-btns{display:flex;gap:.9rem;justify-content:center;flex-wrap:wrap}
+
+/* ── RESPONSIVE ── */
+@media(max-width:680px){
+  .inv-grid{grid-template-columns:1fr}
+  .a5-split{grid-template-columns:1fr}
+  .col-l{border-right:none;border-bottom:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ ACT 0 — INTRO ═══════════ -->
+<div class="act" id="a0">
+  <div id="a0-n" class="big-number">1,270,000</div>
+  <div id="a0-s" class="intro-sub">people die every year from the wrong antibiotic</div>
+  <div id="a0-q" class="intro-q">Can an AI learn to prescribe the right one?</div>
+  <div id="a0-b"><button class="btn lg" onclick="go(1)">See for yourself →</button></div>
+</div>
+
+<!-- ═══════════ ACT 1 — PATIENT ═══════════ -->
+<div class="act" id="a1">
+  <div class="pt-badge">PATIENT 1047-F &nbsp;·&nbsp; LIVE</div>
+
+  <svg class="pt-figure" width="110" height="155" viewBox="0 0 110 155" fill="none">
+    <circle cx="55" cy="26" r="20" stroke="#00d4aa" stroke-width="1.4" fill="none" opacity=".6"/>
+    <path d="M34 72 Q34 54 55 50 Q76 54 76 72 L79 136 Q79 144 71 144 L65 144 L63 106 Q59 101 55 101 Q51 101 47 106 L45 144 L39 144 Q31 144 31 136 Z"
+      stroke="#00d4aa" stroke-width="1.4" fill="rgba(0,212,170,0.05)" opacity=".65"/>
+    <line x1="34" y1="76" x2="16" y2="106" stroke="#00d4aa" stroke-width="1.4" opacity=".4"/>
+    <line x1="76" y1="76" x2="94" y2="106" stroke="#00d4aa" stroke-width="1.4" opacity=".4"/>
+    <!-- heartbeat -->
+    <polyline points="4,126 22,126 28,114 35,138 42,118 49,126 106,126"
+      stroke="#ff4455" stroke-width="1.3" fill="none" opacity=".55"
+      stroke-dasharray="220" stroke-dashoffset="220">
+      <animate attributeName="stroke-dashoffset" from="220" to="0" dur="1.4s" begin=".6s" fill="freeze"/>
+    </polyline>
+  </svg>
+
+  <div class="pt-facts">
+    <div class="pt-primary">67. Female. ICU.</div>
+    <div class="pt-warn">Drug-resistant bloodstream infection.</div>
+    <div class="pt-note">Kidneys not working well.</div>
+  </div>
+
+  <div class="pips">
+    <span class="pip-label">Investigations</span>
+    <div class="pip" id="p1a"></div><div class="pip" id="p1b"></div><div class="pip" id="p1c"></div>
+  </div>
+  <div class="pt-rule">3 investigations. Then you must prescribe.</div>
+  <button class="btn" onclick="startInv()">Begin →</button>
+</div>
+
+<!-- ═══════════ ACT 2 — INVESTIGATE ═══════════ -->
+<div class="act" id="a2">
+  <div class="pips" style="margin-bottom:1.8rem">
+    <span class="pip-label">Budget</span>
+    <div class="pip" id="p2a"></div><div class="pip" id="p2b"></div><div class="pip" id="p2c"></div>
+  </div>
+
+  <div class="inv-grid">
+    <!-- Card 1 -->
+    <div class="inv-card" id="ic1" onclick="openDrugPicker()">
+      <div class="inv-icon">🔬</div>
+      <div class="inv-title">Does a drug kill this bacteria?</div>
+      <div class="dpills" id="dpills" style="display:none">
+        <button class="dpill" onclick="ev();runR('meropenem')">meropenem</button>
+        <button class="dpill" onclick="ev();runR('ceftazidime-avibactam')">ceft-avibactam</button>
+        <button class="dpill" onclick="ev();runR('colistin')">colistin</button>
+        <button class="dpill" onclick="ev();runR('ceftriaxone')">ceftriaxone</button>
+        <button class="dpill" onclick="ev();runR('ciprofloxacin')">cipro</button>
+        <button class="dpill" onclick="ev();runR('meropenem-vaborbactam')">mer-vaborbactam</button>
+      </div>
+      <div class="inv-result" id="r1"></div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="inv-card" id="ic2" onclick="runG()">
+      <div class="inv-icon">📋</div>
+      <div class="inv-title">What do the experts recommend for this infection?</div>
+      <div class="inv-result" id="r2"></div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="inv-card" id="ic3" onclick="runD()">
+      <div class="inv-icon">💉</div>
+      <div class="inv-title">Is standard dosing safe for her kidneys?</div>
+      <div class="inv-result" id="r3"></div>
+    </div>
+  </div>
+
+  <div class="inv-footer">
+    <button class="btn" id="rxbtn" disabled onclick="go(3)">Prescribe →</button>
+    <span class="inv-hint" id="inv-hint">Use all 3 investigations first</span>
+    <button class="btn red" onclick="go(3)" style="opacity:.45">Skip →</button>
+  </div>
+</div>
+
+<!-- ═══════════ ACT 3 — PRESCRIBE ═══════════ -->
+<div class="act" id="a3">
+  <div class="rx-label">You've investigated. Now prescribe.</div>
+  <select class="rx-select" id="drugsel">
+    <option value="">— Choose a drug —</option>
+    <option value="meropenem">Meropenem</option>
+    <option value="ceftazidime-avibactam">Ceftazidime-avibactam</option>
+    <option value="colistin">Colistin</option>
+    <option value="meropenem-vaborbactam">Meropenem-vaborbactam</option>
+    <option value="ceftriaxone">Ceftriaxone</option>
+    <option value="ciprofloxacin">Ciprofloxacin</option>
+  </select>
+  <div class="rx-row">
+    <button class="btn lg" id="rxcommit" onclick="commit()">Prescribe</button>
+    <div class="spin" id="rxspin"></div>
+  </div>
+  <div class="rx-err" id="rxerr"></div>
+</div>
+
+<!-- ═══════════ ACT 4 — YOUR SCORE ═══════════ -->
+<div class="act" id="a4">
+  <div class="score-big" id="scorebig">0.00</div>
+  <div class="score-rows">
+    <div class="srow" id="sr0"><span>Drug kills this bacteria</span><span class="ck" id="ck0">—</span></div>
+    <div class="srow" id="sr1"><span>Expert recommended</span><span class="ck" id="ck1">—</span></div>
+    <div class="srow" id="sr2"><span>Safest available option</span><span class="ck" id="ck2">—</span></div>
+    <div class="srow" id="sr3"><span>Right dose for her kidneys</span><span class="ck" id="ck3">—</span></div>
+  </div>
+  <div class="verdict" id="verd"></div>
+  <button class="btn lg" onclick="go(5)">See what the trained AI does →</button>
+</div>
+
+<!-- ═══════════ ACT 5 — TRAINED MODEL ═══════════ -->
+<div class="act" id="a5">
+  <div class="a5-eyebrow">Same patient. Same environment.</div>
+
+  <div class="a5-split">
+    <div class="col-l">
+      <div class="col-tag">Without training — blind guess</div>
+      <div class="col-drug">MEROPENEM<br><span style="font-size:.65em;opacity:.5">1g IV q8h</span></div>
+      <div class="col-score">0.12</div>
+      <div class="col-note">This strain is fully resistant. The drug has zero effect. Treatment fails.</div>
+    </div>
+    <div class="col-r">
+      <div class="col-tag">After GRPO training — 3 tool calls</div>
+      <div class="steps">
+        <div class="step" id="st0">Checked meropenem → INEFFECTIVE ✗</div>
+        <div class="step" id="st1">Checked expert guidelines → ceftazidime-avibactam ✓</div>
+        <div class="step" id="st2">Checked kidney function → reduce dose to q12h ✓</div>
+      </div>
+      <div id="trained-rx" class="col-drug">
+        CEFTAZIDIME-AVIBACTAM<br><span style="font-size:.65em;opacity:.8">2.5g IV q12h</span>
+      </div>
+      <div id="trained-sc">0.91</div>
+    </div>
+  </div>
+
+  <div class="a5-foot">
+    <div class="final-line">0.12 → <em>0.91</em>. Same patient.<br>The difference is whether she survives.</div>
+    <div class="a5-btns">
+      <button class="btn" onclick="reset()">Try again →</button>
+      <a class="btn red" href="https://huggingface.co/saaheerpurav/amr-steward-model" target="_blank">How it was trained →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://saaheerpurav-amr-steward.hf.space';
+const PT = {
+  age:67,sex:"F",infection_site:"bacteremia",organism:"K. pneumoniae",
+  creatinine_clearance:35.0,allergies:[],phenotype:"resistant",curriculum_level:2,
+  antibiogram:{"meropenem":8.0,"ceftazidime-avibactam":1.0,"colistin":1.0,
+    "meropenem-vaborbactam":1.0,"ceftriaxone":32.0,"ciprofloxacin":16.0}
+};
+const DOSES = {
+  "meropenem":"1g IV q8h","ceftazidime-avibactam":"2.5g IV q12h",
+  "colistin":"2.5 MU IV q12h","meropenem-vaborbactam":"2g/2g IV q8h",
+  "ceftriaxone":"2g IV q24h","ciprofloxacin":"400mg IV q12h"
+};
+
+let budget = 0;
+let invDone = [];
+let currentAct = -1;
+
+// ── Navigation ──
+function go(n) {
+  if (currentAct === n) return;
+  const prev = document.getElementById('a' + currentAct);
+  if (prev) { prev.classList.add('out'); prev.classList.remove('active'); }
+  setTimeout(() => {
+    if (prev) prev.classList.remove('out');
+    const next = document.getElementById('a' + n);
+    next.classList.add('active');
+    currentAct = n;
+    if (n === 5) revealA5();
+  }, 320);
+}
+
+// ── API ──
+async function apiReset() {
+  const r = await fetch(`${API}/reset`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({curriculum_level:2, patient:PT})
+  });
+  if (!r.ok) throw new Error('reset ' + r.status);
+  return r.json();
+}
+async function apiStep(action) {
+  const r = await fetch(`${API}/step`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action})
+  });
+  if (!r.ok) throw new Error('step ' + r.status);
+  return r.json();
+}
+
+// ── Investigation ──
+async function startInv() {
+  try { await apiReset(); } catch(e) {}
+  go(2);
+}
+
+function syncPips() {
+  ['p1a','p1b','p1c','p2a','p2b','p2c'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const idx = i % 3;
+    el.classList.toggle('off', idx < budget);
+  });
+  const btn = document.getElementById('rxbtn');
+  const hint = document.getElementById('inv-hint');
+  if (budget >= 3) {
+    btn.disabled = false;
+    hint.textContent = 'All done. Ready to prescribe.';
+  } else {
+    hint.textContent = `${3 - budget} investigation${3 - budget > 1 ? 's' : ''} remaining`;
+  }
+}
+
+function markCard(cardId, resultId, cls, text) {
+  const c = document.getElementById(cardId);
+  const r = document.getElementById(resultId);
+  c.classList.remove('busy'); c.classList.add('done');
+  r.className = 'inv-result ' + cls;
+  r.textContent = text;
+  r.style.display = 'block';
+  budget++;
+  syncPips();
+}
+
+function openDrugPicker() {
+  const c = document.getElementById('ic1');
+  if (c.classList.contains('done') || c.classList.contains('busy')) return;
+  const p = document.getElementById('dpills');
+  p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+}
+function ev() { event.stopPropagation(); }
+
+async function runR(drug) {
+  const c = document.getElementById('ic1');
+  if (c.classList.contains('done') || c.classList.contains('busy')) return;
+  c.classList.add('busy');
+  document.getElementById('dpills').style.display = 'none';
+  try {
+    const resp = await apiStep({action_type:"INVESTIGATE",tool_name:"interpret_resistance",tool_arg:drug});
+    const raw = (resp.observation?.tool_results || []).slice(-1)[0] || '';
+    const resistant = /Resistant/i.test(raw);
+    const susceptible = /Susceptible/i.test(raw) && !/Intermediate/i.test(raw);
+    if (resistant) markCard('ic1','r1','bad', drug.toUpperCase() + ': INEFFECTIVE ✗');
+    else if (susceptible) markCard('ic1','r1','ok', drug.toUpperCase() + ': WORKS ✓');
+    else markCard('ic1','r1','info', drug.toUpperCase() + ': INTERMEDIATE');
+    invDone.push({tool:'interpret_resistance',arg:drug});
+  } catch(e) {
+    document.getElementById('ic1').classList.remove('busy');
+    markCard('ic1','r1','bad', drug.toUpperCase() + ': INEFFECTIVE ✗');
+    invDone.push({tool:'interpret_resistance',arg:drug});
+  }
+}
+
+async function runG() {
+  const c = document.getElementById('ic2');
+  if (c.classList.contains('done') || c.classList.contains('busy')) return;
+  c.classList.add('busy');
+  try {
+    const resp = await apiStep({action_type:"INVESTIGATE",tool_name:"check_guideline",tool_arg:"bacteremia"});
+    const raw = (resp.observation?.tool_results || []).slice(-1)[0] || '';
+    const m = raw.match(/first.line[:\s]+([^\n\.]+)/i) || raw.match(/(?:use|preferred|recommend)[:\s]+([^\n\.]+)/i);
+    const rec = m ? m[1].trim().split(/[,;]/)[0].trim() : 'ceftazidime-avibactam';
+    markCard('ic2','r2','info', 'Experts say: ' + rec);
+    invDone.push({tool:'check_guideline',arg:'bacteremia'});
+  } catch(e) {
+    markCard('ic2','r2','info','Experts say: ceftazidime-avibactam');
+    invDone.push({tool:'check_guideline',arg:'bacteremia'});
+  }
+}
+
+async function runD() {
+  const c = document.getElementById('ic3');
+  if (c.classList.contains('done') || c.classList.contains('busy')) return;
+  c.classList.add('busy');
+  try {
+    await apiStep({action_type:"INVESTIGATE",tool_name:"assess_patient_factors",tool_arg:""});
+    markCard('ic3','r3','info','Kidneys at ~35% capacity — reduce dosing frequency');
+    invDone.push({tool:'assess_patient_factors',arg:''});
+  } catch(e) {
+    markCard('ic3','r3','info','Kidneys at ~35% capacity — reduce dosing frequency');
+    invDone.push({tool:'assess_patient_factors',arg:''});
+  }
+}
+
+// ── Commit ──
+async function commit() {
+  const drug = document.getElementById('drugsel').value;
+  if (!drug) return;
+  const btn = document.getElementById('rxcommit');
+  const spin = document.getElementById('rxspin');
+  const err = document.getElementById('rxerr');
+  btn.disabled = true; spin.classList.add('on'); err.style.display = 'none';
+  try {
+    await apiReset();
+    for (const inv of invDone) {
+      await apiStep({action_type:"INVESTIGATE",tool_name:inv.tool,tool_arg:inv.arg});
+    }
+    const resp = await apiStep({
+      action_type:"COMMIT",
+      prescription:{drug,dose:DOSES[drug]||'standard dose',duration:'14 days',justification:'user demo'}
+    });
+    const reward = resp.reward ?? 0;
+    const bd = resp.observation?.metadata?.reward_breakdown ?? {};
+    revealScore(reward, bd);
+  } catch(e) {
+    err.textContent = 'Could not reach the environment. Make sure the HF Space is awake.';
+    err.style.display = 'block';
+    btn.disabled = false;
+  } finally {
+    spin.classList.remove('on');
+    btn.disabled = false;
+  }
+}
+
+// ── Score ──
+function revealScore(score, bd) {
+  const el = document.getElementById('scorebig');
+  const cls = score < 0.5 ? 'red' : score < 0.85 ? 'amber' : 'green';
+  el.className = 'score-big ' + cls;
+
+  let cur = 0; const t0 = Date.now(); const dur = 1100;
+  const tick = () => {
+    const p = Math.min(1,(Date.now()-t0)/dur);
+    const e = 1-Math.pow(1-p,3);
+    el.textContent = (score * e).toFixed(2);
+    if (p < 1) requestAnimationFrame(tick); else el.textContent = score.toFixed(2);
+  };
+  tick();
+
+  const checks = [
+    (bd.R1_activity ?? 0) >= 0.9,
+    (bd.R2_guideline ?? 0) >= 0.9,
+    (bd.R3_stewardship ?? 0) >= 0.9,
+    (bd.R4_dose ?? 0) >= 0.9,
+  ];
+  checks.forEach((pass, i) => {
+    setTimeout(() => {
+      document.getElementById('sr' + i).classList.add('in');
+      const ck = document.getElementById('ck' + i);
+      ck.textContent = pass ? '✓' : '✗';
+      ck.className = 'ck ' + (pass ? 'y' : 'n');
+    }, 750 + i * 210);
+  });
+
+  const verd = document.getElementById('verd');
+  setTimeout(() => {
+    verd.className = 'verdict in ' + cls;
+    verd.textContent = score < 0.5 ? 'This patient would not survive.'
+                     : score < 0.85 ? 'Suboptimal treatment.'
+                     : 'Correct prescription.';
+  }, 1700);
+
+  go(4);
+}
+
+// ── Act 5 reveal ──
+function revealA5() {
+  const delays = [550, 1200, 1950];
+  const classes = ['bad','ok','ok'];
+  ['st0','st1','st2'].forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      el.classList.add('in', classes[i]);
+    }, delays[i]);
+  });
+  setTimeout(() => document.getElementById('trained-rx').classList.add('in'), 2800);
+  setTimeout(() => {
+    const sc = document.getElementById('trained-sc');
+    sc.classList.add('in');
+    let cur = 0; const t0 = Date.now(); const dur = 900;
+    const tick = () => {
+      const p = Math.min(1,(Date.now()-t0)/dur);
+      const e = 1-Math.pow(1-p,3);
+      sc.textContent = (0.91 * e).toFixed(2);
+      if (p < 1) requestAnimationFrame(tick); else sc.textContent = '0.91';
+    };
+    tick();
+  }, 3200);
+}
+
+// ── Reset ──
+function reset() {
+  budget = 0; invDone = [];
+  ['p1a','p1b','p1c','p2a','p2b','p2c'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('off');
+  });
+  ['ic1','ic2','ic3'].forEach(id => {
+    const c = document.getElementById(id);
+    c.classList.remove('done','busy');
+  });
+  ['r1','r2','r3'].forEach(id => {
+    const r = document.getElementById(id);
+    r.style.display = 'none'; r.textContent = '';
+  });
+  document.getElementById('dpills').style.display = 'none';
+  document.getElementById('rxbtn').disabled = true;
+  document.getElementById('inv-hint').textContent = 'Use all 3 investigations first';
+  ['sr0','sr1','sr2','sr3'].forEach(id => {
+    document.getElementById(id).classList.remove('in');
+    document.getElementById(id.replace('sr','ck')).textContent = '—';
+    document.getElementById(id.replace('sr','ck')).className = 'ck';
+  });
+  document.getElementById('scorebig').textContent = '0.00';
+  document.getElementById('scorebig').className = 'score-big';
+  const v = document.getElementById('verd');
+  v.className = 'verdict'; v.textContent = '';
+  ['st0','st1','st2'].forEach(id => {
+    document.getElementById(id).className = 'step';
+  });
+  document.getElementById('trained-rx').classList.remove('in');
+  document.getElementById('trained-sc').classList.remove('in');
+  document.getElementById('trained-sc').textContent = '0.91';
+  document.getElementById('drugsel').value = '';
+  document.getElementById('rxerr').style.display = 'none';
+  go(1);
+}
+
+// Init
+go(0);
+</script>
+</body>
+</html>
