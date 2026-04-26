@@ -307,18 +307,18 @@ def train_stage(model, tokenizer, level, num_samples, stage_label, reward_fns):
         output_dir=out_dir,
         num_train_epochs=1,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=2,    # must satisfy: (batch*accum) % num_generations == 0 → 2%2==0
+        gradient_accumulation_steps=4,    # must satisfy: (batch*accum) % num_generations == 0 → 4%4==0
         learning_rate=LEARNING_RATE,
         warmup_ratio=0.05,
         lr_scheduler_type="cosine",
         bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(),
         fp16=False,
         logging_steps=1,
-        save_steps=500,
-        save_total_limit=1,
-        report_to="none",
-        max_completion_length=512,        # need room for model to reach COMMIT line
-        num_generations=2,               # min valid for GRPO; accum=2 ensures 2%2==0
+        save_steps=50,
+        save_total_limit=2,
+        report_to="tensorboard",
+        max_completion_length=768,        # extra headroom so model reaches COMMIT line before clipping
+        num_generations=4,               # more contrast between good/bad completions for GRPO
         temperature=0.7,
         log_completions=False,
         use_vllm=False,
@@ -414,6 +414,22 @@ def push_model(trainer, tokenizer):
         api.upload_file(path_or_fileobj=str(curve), path_in_repo="reward_curves.png",
                        repo_id=HF_REPO_ID, repo_type="model")
         log("Uploaded reward_curves.png to model repo.")
+
+    # Upload per-stage log_history.json and tensorboard runs so nothing is lost when Space shuts down
+    for stage in ["stage1", "stage2", "stage3"]:
+        stage_dir = Path(f"{OUTPUT_DIR}/{stage}")
+        log_file = stage_dir / "log_history.json"
+        if log_file.exists():
+            api.upload_file(path_or_fileobj=str(log_file),
+                           path_in_repo=f"training_logs/{stage}/log_history.json",
+                           repo_id=HF_REPO_ID, repo_type="model")
+            log(f"Uploaded {stage}/log_history.json")
+        tb_dir = stage_dir / "runs"
+        if tb_dir.exists():
+            api.upload_folder(folder_path=str(tb_dir),
+                             path_in_repo=f"training_logs/{stage}/runs",
+                             repo_id=HF_REPO_ID, repo_type="model")
+            log(f"Uploaded {stage}/runs (tensorboard)")
 
 
 def plot_curves():

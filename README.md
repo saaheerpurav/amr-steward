@@ -23,8 +23,8 @@ pinned: false
 | **Live OpenEnv (HF Space)** | [divyanshb06-amrsteward.hf.space](https://divyanshb06-amrsteward.hf.space) | Public, cloneable, 200 OK |
 | **Trained Model (HF Hub)** | [saaheerpurav/amr-steward-model](https://huggingface.co/saaheerpurav/amr-steward-model) | Public |
 | **Source Repository** | [github.com/saaheerpurav/amr-steward](https://github.com/saaheerpurav/amr-steward) | Public |
-| **Training Notebook** | [AMR_Steward.ipynb](AMR_Steward.ipynb) · [Open in Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb) | Re-runnable end-to-end |
 | **Technical Writeup** | [BLOG.md](BLOG.md) | 10-section technical writeup |
+| **Training Notebook** | [AMR_Steward.ipynb](AMR_Steward.ipynb) · [Open in Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb) | Re-runnable end-to-end |
 | **Browser Demo UI** | [demo_web/index.html](demo_web/index.html) | Interactive env walker |
 | **Reward Curves (PNG)** | [reward_curves.png](reward_curves.png) | Embedded below |
 | **Training Summary (PNG)** | [training_summary.png](training_summary.png) | Embedded below |
@@ -45,7 +45,8 @@ Every item below is explicitly addressed and verifiable from this repo.
 | 6 | Runnable training script (Python or Colab notebook) | [`train.py`](train.py) (Python, ~600 lines) + [`AMR_Steward.ipynb`](AMR_Steward.ipynb) ([Colab](https://colab.research.google.com/github/saaheerpurav/amr-steward/blob/main/AMR_Steward.ipynb)) — both end-to-end reproducible on A10G |
 | 7 | README links every deliverable, plots embedded inline | This Quick Links table + Results section embeds both PNGs via relative paths (works on GitHub *and* HF Space) |
 | 8 | Writeup linked from README | [`BLOG.md`](BLOG.md) — 10-section, ~2000 words |
-| 9 | Reproducible evaluation | `python eval.py` (baseline benchmarks) + `python eval_published_cases.py` (3 published cases) + `python eval_adversarial.py --seed 42` (10 adversarial cases) — all run on CPU in <60 seconds, no GPU required |
+| 9 | Unit + integration tests pass | `pytest test_env.py test_jepa_integration.py` — **21/21 tests pass** (8 env tests, 13 JEPA integration tests); covers reset/step/budget/reward, JEPA info-gain bounds, dense cap enforcement, EMA world model loading |
+| 10 | Reproducible evaluation | `python eval.py` (baseline benchmarks) + `python eval_published_cases.py` (3 published cases) + `python eval_adversarial.py --seed 42` (10 adversarial cases) — all run on CPU in <60 seconds, no GPU required |
 
 ---
 
@@ -165,6 +166,21 @@ total         = 0.90·quality_ratio + 0.10·R5
 
 ---
 
+## Reward Hacking Defenses
+
+Four independent mechanisms prevent agents from gaming the reward signal:
+
+| Vector | Defense | How it works |
+|--------|---------|-------------|
+| **Allergy bypass** | R0 hard gate | Any prescription the patient is allergic to → `total = 0.0, done = True` immediately. No partial credit. Checked before any other component. |
+| **Dense reward farming** | Investigation cap | INVESTIGATE steps earn `+0.04` per novel `(tool, argument)` pair, **hard-capped at `+0.20` total per episode** (`DENSE_CAP`). An agent that only calls tools and never commits cannot exceed 0.20 — well below any meaningful terminal reward. |
+| **Repeated tool calls** | `_called_tools` deduplication | `AMREnvironment._called_tools` tracks every `(tool_name, tool_arg)` pair seen. Calling the same tool with the same argument a second time earns **zero** dense bonus. Prevents reward farming via repetition. |
+| **Stewardship gaming** | R3 gated on R1 | R3 (narrowest effective drug) only fires if R1 ≥ threshold — the drug must actually cover the organism. Prescribing a useless narrow-spectrum drug to game the stewardship score returns R3 = 0. |
+
+The patient-specific `quality_ratio` oracle (`compute_optimal_prescription()`) brute-forces the ceiling at reset time — so the terminal signal is relative to what is *actually achievable* for this patient, not a fixed threshold that could be gamed with an easy case.
+
+---
+
 ## JEPA World Model — Latent-Space Guidance System
 
 AMR-Steward applies **Meta AI's Joint Embedding Predictive Architecture (JEPA)** — specifically the **I-JEPA pattern** with an EMA-stabilised target encoder — as a self-supervised world model for clinical state prediction. **To our knowledge this is the first JEPA-based world model deployed inside a clinical-domain RL environment**: the same SSL objective Meta uses for vision representation learning ([Assran et al., CVPR 2023](https://arxiv.org/abs/2301.08243)) is applied here to clinical `(state, tool, next_state)` prediction.
@@ -252,9 +268,23 @@ Reward holds consistently above 0.70 even as case complexity scales from suscept
 
 ![Training summary — improvement over random baseline](training_summary.png)
 
-A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Random prescribing scores ~0.05–0.10. The trained model consistently scores **0.71–0.84** across all stages.
+A perfect prescription (correct drug, first-line IDSA, narrowest spectrum, correct renal dose, full investigation) scores **1.0** (`quality_ratio = 1.0`). Defaulting to the broadest available agent (e.g. meropenem) scores 0.21–0.47 across levels. The trained model consistently scores **0.71–0.84** across all stages.
 
-**Improvement: +0.65–0.79 over random baseline** (0.05–0.10 → 0.71–0.84).
+**3× better than the broad-empiric baseline on the hardest drug-resistant cases** (Level 3: 0.71 vs 0.21).
+
+---
+
+## Tests
+
+```bash
+pytest test_env.py test_jepa_integration.py -v
+# 21 passed in ~5s (CPU, no GPU required)
+```
+
+| File | Tests | What's covered |
+|------|-------|---------------|
+| [`test_env.py`](test_env.py) | 8 | Reset, tool calls, correct/wrong prescription rewards, budget exhaustion, invalid action handling, state property, app import |
+| [`test_jepa_integration.py`](test_jepa_integration.py) | 13 | JEPA info-gain bounds, dense reward cap, EMA world model loading, repeated-tool no-bonus rule, latent consistency bonus bounds, full episode accumulation, correct prescription reward with JEPA active |
 
 ---
 
@@ -318,6 +348,8 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 - **EUCAST Breakpoints**: EUCAST Clinical Breakpoints v16.0 (2026)
 - **Drug Properties**: Standard prescribing references (renal adjustments, allergy flags)
 - **Patient Cases**: Synthetically generated from realistic clinical distributions
+
+**Why these pathogens specifically:** The environment covers the five bacteria designated as *critical priority* by the WHO Global Priority Pathogens List — *K. pneumoniae*, *E. coli*, *P. aeruginosa*, *S. aureus*, and *Enterococcus*. These five account for the overwhelming majority of drug-resistant infection deaths globally and are the primary targets of antibiotic stewardship programs worldwide. Scope is intentionally narrow and medically verified rather than broad and approximate — every breakpoint and guideline entry in the environment is traceable to a published EUCAST or IDSA source.
 
 ---
 
