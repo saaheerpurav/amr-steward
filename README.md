@@ -349,6 +349,8 @@ See [`demo.py`](demo.py) for a complete worked example comparing an untrained br
 - **Drug Properties**: Standard prescribing references (renal adjustments, allergy flags)
 - **Patient Cases**: Synthetically generated from realistic clinical distributions
 
+**Why these pathogens specifically:** The environment covers the five bacteria designated as *critical priority* by the WHO Global Priority Pathogens List — *K. pneumoniae*, *E. coli*, *P. aeruginosa*, *S. aureus*, and *Enterococcus*. These five account for the overwhelming majority of drug-resistant infection deaths globally and are the primary targets of antibiotic stewardship programs worldwide. Scope is intentionally narrow and medically verified rather than broad and approximate — every breakpoint and guideline entry in the environment is traceable to a published EUCAST or IDSA source.
+
 ---
 
 ## Links
